@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bryan's Start Page</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-bookmark"></i>
+                <h1>Bryan's Start Page</h1>
+            </div>
+            <div class="header-actions">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="북마크 검색..." class="search-input">
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="테마 전환">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="theme-toggle" id="settingsBtn" aria-label="설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="btn-primary" id="addCategoryBtn">
+                    <i class="fas fa-folder-plus"></i>
+                    <span>카테고리 추가</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="categories-wrapper" id="categoriesWrapper">
+                <!-- 카테고리들이 동적으로 추가됩니다 -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Category Modal -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">카테고리 추가</h2>
+                <button class="modal-close" id="closeCategoryModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="categoryName">카테고리 이름</label>
+                    <input type="text" id="categoryName" placeholder="예: 업무, 개인, 쇼핑" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="categoryIcon">아이콘</label>
+                    <div class="icon-picker-grid">
+                        <div class="icon-option" data-icon="fa-briefcase" title="업무"><i class="fas fa-briefcase"></i></div>
+                        <div class="icon-option" data-icon="fa-heart" title="개인"><i class="fas fa-heart"></i></div>
+                        <div class="icon-option" data-icon="fa-shopping-cart" title="쇼핑"><i class="fas fa-shopping-cart"></i></div>
+                        <div class="icon-option" data-icon="fa-gamepad" title="게임"><i class="fas fa-gamepad"></i></div>
+                        <div class="icon-option" data-icon="fa-music" title="음악"><i class="fas fa-music"></i></div>
+                        <div class="icon-option" data-icon="fa-film" title="영화"><i class="fas fa-film"></i></div>
+                        <div class="icon-option" data-icon="fa-book" title="독서"><i class="fas fa-book"></i></div>
+                        <div class="icon-option" data-icon="fa-graduation-cap" title="학습"><i class="fas fa-graduation-cap"></i></div>
+                        <div class="icon-option" data-icon="fa-dumbbell" title="운동"><i class="fas fa-dumbbell"></i></div>
+                        <div class="icon-option" data-icon="fa-utensils" title="음식"><i class="fas fa-utensils"></i></div>
+                        <div class="icon-option" data-icon="fa-plane" title="여행"><i class="fas fa-plane"></i></div>
+                        <div class="icon-option" data-icon="fa-camera" title="사진"><i class="fas fa-camera"></i></div>
+                        <div class="icon-option" data-icon="fa-code" title="개발"><i class="fas fa-code"></i></div>
+                        <div class="icon-option" data-icon="fa-palette" title="디자인"><i class="fas fa-palette"></i></div>
+                        <div class="icon-option" data-icon="fa-newspaper" title="뉴스"><i class="fas fa-newspaper"></i></div>
+                        <div class="icon-option" data-icon="fa-wallet" title="재정"><i class="fas fa-wallet"></i></div>
+                        <div class="icon-option" data-icon="fa-home" title="홈"><i class="fas fa-home"></i></div>
+                        <div class="icon-option" data-icon="fa-star" title="즐겨찾기"><i class="fas fa-star"></i></div>
+                        <div class="icon-option" data-icon="fa-fire" title="인기"><i class="fas fa-fire"></i></div>
+                        <div class="icon-option" data-icon="fa-bolt" title="빠른"><i class="fas fa-bolt"></i></div>
+                        <div class="icon-option" data-icon="fa-coffee" title="카페"><i class="fas fa-coffee"></i></div>
+                        <div class="icon-option" data-icon="fa-laptop" title="컴퓨터"><i class="fas fa-laptop"></i></div>
+                        <div class="icon-option" data-icon="fa-mobile" title="모바일"><i class="fas fa-mobile"></i></div>
+                        <div class="icon-option" data-icon="fa-folder" title="폴더"><i class="fas fa-folder"></i></div>
+                    </div>
+                    <input type="text" id="categoryIcon" placeholder="또는 직접 입력 (예: fa-briefcase)" class="form-input" style="margin-top: 8px;">
+                    <small>아이콘 선택 또는 직접 입력 · <a href="https://fontawesome.com/icons" target="_blank">더 많은 아이콘</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="categoryColor">카테고리 아이콘 색상</label>
+                    <div class="color-palette">
+                        <div class="color-option" data-color="linear-gradient(135deg, #3b82f6, #2563eb)" style="background: linear-gradient(135deg, #3b82f6, #2563eb);" title="기본 블루"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #10b981, #059669)" style="background: linear-gradient(135deg, #10b981, #059669);" title="그린"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #f59e0b, #d97706)" style="background: linear-gradient(135deg, #f59e0b, #d97706);" title="오렌지"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #ef4444, #dc2626)" style="background: linear-gradient(135deg, #ef4444, #dc2626);" title="레드"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #8b5cf6, #7c3aed)" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" title="퍼플"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #ec4899, #db2777)" style="background: linear-gradient(135deg, #ec4899, #db2777);" title="핑크"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #06b6d4, #0891b2)" style="background: linear-gradient(135deg, #06b6d4, #0891b2);" title="시안"></div>
+                        <div class="color-option" data-color="linear-gradient(135deg, #64748b, #475569)" style="background: linear-gradient(135deg, #64748b, #475569);" title="그레이"></div>
+                    </div>
+                    <input type="hidden" id="categoryColorValue" value="">
+                </div>
+                <div class="form-group">
+                    <label for="categoryBgColor">카테고리 배경색</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="color" id="categoryBgPicker" class="color-picker" value="#ffffff">
+                        <input type="text" id="categoryBgColor" placeholder="#ffffff 또는 rgba(255,255,255,0.1)" class="form-input" style="flex: 1;">
+                    </div>
+                    <small>색상 선택 또는 HEX/RGBA 코드 입력</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelCategoryBtn">취소</button>
+                <button class="btn-primary" id="saveCategoryBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Bookmark Modal -->
+    <div class="modal" id="bookmarkModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="bookmarkModalTitle">북마크 추가</h2>
+                <button class="modal-close" id="closeBookmarkModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bookmarkTitle">제목</label>
+                    <input type="text" id="bookmarkTitle" placeholder="예: Google" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="bookmarkUrl">URL</label>
+                    <input type="url" id="bookmarkUrl" placeholder="https://example.com" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="bookmarkDescription">설명 (선택)</label>
+                    <input type="text" id="bookmarkDescription" placeholder="간단한 설명" class="form-input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelBookmarkBtn">취소</button>
+                <button class="btn-primary" id="saveBookmarkBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>삭제 확인</h2>
+                <button class="modal-close" id="closeDeleteModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteMessage">정말 삭제하시겠습니까?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelDeleteBtn">취소</button>
+                <button class="btn-danger" id="confirmDeleteBtn">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>설정</h2>
+                <button class="modal-close" id="closeSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="pageTitle">페이지 제목</label>
+                    <input type="text" id="pageTitle" placeholder="Bryan's Start Page" class="form-input">
+                    <small>헤더에 표시될 페이지 제목</small>
+                </div>
+                <div class="form-group">
+                    <label for="pageTitleIcon">페이지 아이콘 (Font Awesome)</label>
+                    <input type="text" id="pageTitleIcon" placeholder="fa-bookmark" class="form-input">
+                    <small>헤더 아이콘 (예: fa-rocket, fa-star) · <a href="https://fontawesome.com/icons" target="_blank">더 많은 아이콘</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="categoryFontSize">카테고리 제목 폰트 크기: <span id="categoryFontSizeValue">10</span>px</label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="range" id="categoryFontSize" min="6" max="20" value="10" step="1" class="font-slider">
+                        <input type="number" id="categoryFontSizeInput" min="6" max="20" value="10" class="form-input" style="width: 70px;">
+                    </div>
+                    <small>카테고리 제목 크기 조절 (6px ~ 20px)</small>
+                </div>
+                <div class="form-group">
+                    <label for="bookmarkFontSize">북마크 폰트 크기: <span id="bookmarkFontSizeValue">12</span>px</label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="range" id="bookmarkFontSize" min="8" max="20" value="12" step="1" class="font-slider">
+                        <input type="number" id="bookmarkFontSizeInput" min="8" max="20" value="12" class="form-input" style="width: 70px;">
+                    </div>
+                    <small>북마크 제목 크기 조절 (8px ~ 20px)</small>
+                </div>
+                <div class="form-group">
+                    <label for="bgImageUrl">배경 이미지 URL</label>
+                    <input type="url" id="bgImageUrl" placeholder="https://example.com/image.jpg" class="form-input">
+                    <small>배경 이미지 URL을 입력하거나 비워두면 기본 배경이 사용됩니다.</small>
+                </div>
+                <div class="form-group">
+                    <label for="bgCustomColor">배경 색상/그라데이션</label>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                        <input type="color" id="bgColorPicker" class="color-picker" value="#f5f7fa">
+                        <input type="text" id="bgCustomColor" placeholder="#ffffff 또는 linear-gradient(...)" class="form-input" style="flex: 1;">
+                    </div>
+                    <small>단색 선택 또는 HEX/그라데이션 코드 입력 (예: linear-gradient(135deg, #667eea, #764ba2))</small>
+                </div>
+                <div class="form-group">
+                    <label>배경 프리셋</label>
+                    <div class="bg-preset-grid">
+                        <div class="bg-preset" data-bg="" style="background: var(--bg-primary);">
+                            <span>없음</span>
+                        </div>
+                        <div class="bg-preset" data-bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+                            <span>퍼플 그라데이션</span>
+                        </div>
+                        <div class="bg-preset" data-bg="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
+                            <span>핑크 그라데이션</span>
+                        </div>
+                        <div class="bg-preset" data-bg="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
+                            <span>블루 그라데이션</span>
+                        </div>
+                        <div class="bg-preset" data-bg="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)">
+                            <span>그린 그라데이션</span>
+                        </div>
+                        <div class="bg-preset" data-bg="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
+                            <span>선셋</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
