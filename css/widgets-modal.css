@@ -1,0 +1,34 @@
+/* Clock Detail Modal */
+.clock-detail {
+    text-align: center;
+    padding: 40px;
+}
+
+.clock-detail-large {
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Inter', monospace;
+    margin-bottom: 16px;
+}
+
+.clock-detail-date {
+    font-size: 24px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.clock-detail-timezone {
+    font-size: 16px;
+    color: var(--text-tertiary);
+    padding: 8px 16px;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.currency-detail-grid, .stock-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}

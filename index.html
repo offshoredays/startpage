@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bryan's Start Page</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/widgets-modal.css">
+    <link rel="stylesheet" href="css/github-sync.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -12,24 +14,82 @@
     <!-- Header -->
     <header class="header">
         <div class="header-content">
-            <div class="logo">
-                <i class="fas fa-bookmark"></i>
-                <h1>Bryan's Start Page</h1>
-            </div>
-            <div class="header-actions">
-                <div class="search-container">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="북마크 검색..." class="search-input">
+            <!-- Weather Widget -->
+            <div class="widget weather-widget" id="weatherWidget">
+                <button class="widget-settings-btn" id="weatherSettingsBtn" title="날씨 설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="weather-compact" id="weatherCompact">
+                    <i class="fas fa-cloud-sun"></i>
+                    <div class="weather-info">
+                        <span class="weather-temp">--°</span>
+                        <span class="weather-location">--</span>
+                    </div>
+                    <div class="weather-extra">
+                        <span class="weather-wind" title="풍속"><i class="fas fa-wind"></i> --</span>
+                        <span class="weather-wave" title="파도"><i class="fas fa-water"></i> --</span>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Clock Widget -->
+            <div class="widget clock-widget" id="clockWidget">
+                <button class="widget-settings-btn" id="clockSettingsBtn" title="시계 설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="clock-time">00:00</div>
+                <div class="clock-date">Loading...</div>
+            </div>
+
+            <!-- Currency Widget -->
+            <div class="widget currency-widget" id="currencyWidget">
+                <button class="widget-settings-btn" id="currencySettingsBtn" title="환율 설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="currency-item">
+                    <span class="currency-label">USD</span>
+                    <span class="currency-value">--</span>
+                </div>
+                <div class="currency-item">
+                    <span class="currency-label">JPY</span>
+                    <span class="currency-value">--</span>
+                </div>
+            </div>
+
+            <!-- Stock Widget -->
+            <div class="widget stock-widget" id="stockWidget">
+                <button class="widget-settings-btn" id="stockSettingsBtn" title="주식 설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="stock-item">
+                    <span class="stock-label">KOSPI</span>
+                    <span class="stock-value">--</span>
+                </div>
+            </div>
+
+            <!-- Search Widget -->
+            <div class="widget search-widget" id="searchWidget">
+                <button class="widget-settings-btn" id="searchSettingsBtn" title="검색 설정">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <img id="searchEngineFavicon" src="https://www.google.com/favicon.ico" alt="" class="search-engine-favicon">
+                <select class="search-engine-select" id="searchEngineSelect">
+                    <option value="google" data-icon="https://www.google.com/favicon.ico">Google</option>
+                    <option value="youtube" data-icon="https://www.youtube.com/favicon.ico">YouTube</option>
+                    <option value="naver" data-icon="https://www.naver.com/favicon.ico">Naver</option>
+                </select>
+                <input type="text" id="globalSearchInput" placeholder="Search..." class="global-search-input">
+                <button class="search-btn" id="globalSearchBtn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+
+            <div class="header-actions">
                 <button class="theme-toggle" id="themeToggle" aria-label="테마 전환">
                     <i class="fas fa-moon"></i>
                 </button>
                 <button class="theme-toggle" id="settingsBtn" aria-label="설정">
                     <i class="fas fa-cog"></i>
-                </button>
-                <button class="btn-primary" id="addCategoryBtn">
-                    <i class="fas fa-folder-plus"></i>
-                    <span>카테고리 추가</span>
                 </button>
             </div>
         </div>
@@ -179,6 +239,18 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
+                    <label>위젯 표시 설정</label>
+                    <small>체크 해제하면 위젯이 숨겨집니다</small>
+                    <div style="margin-top: 8px;">
+                        <label><input type="checkbox" id="showWeatherWidget" checked> 날씨 위젯</label><br>
+                        <label><input type="checkbox" id="showClockWidget" checked> 시계 위젯</label><br>
+                        <label><input type="checkbox" id="showCurrencyWidget" checked> 환율 위젯</label><br>
+                        <label><input type="checkbox" id="showStockWidget" checked> 주식 위젯</label><br>
+                        <label><input type="checkbox" id="showSearchWidget" checked> 검색 위젯</label><br>
+                        <label><input type="checkbox" id="showFooterWidget" checked> 푸터 북마크 위젯</label>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="pageTitle">페이지 제목</label>
                     <input type="text" id="pageTitle" placeholder="Bryan's Start Page" class="form-input">
                     <small>헤더에 표시될 페이지 제목</small>
@@ -240,6 +312,65 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label><i class="fab fa-github"></i> GitHub 클라우드 동기화</label>
+                    <div id="githubSyncStatus" class="sync-status-container">
+                        <div id="sync-status" class="sync-status idle"></div>
+                    </div>
+                    <div id="githubNotConnected" style="margin-top: 12px;">
+                        <small style="display: block; margin-bottom: 12px;">
+                            집, 회사 등 어디서든 같은 북마크를 사용할 수 있습니다.<br>
+                            GitHub Personal Access Token이 필요합니다. 
+                            <a href="https://github.com/settings/tokens/new?description=Startpage%20Sync&scopes=gist" target="_blank">토큰 발급하기</a>
+                        </small>
+                        <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="form-input" style="margin-bottom: 8px;">
+                        <small style="display: block; margin-bottom: 8px; color: var(--text-secondary);">
+                            <strong>필요한 권한:</strong> gist (Gist 생성 및 수정)
+                        </small>
+                        <button class="btn-primary" id="connectGithubBtn" style="width: 100%;">
+                            <i class="fab fa-github"></i>
+                            <span>GitHub 연결하기</span>
+                        </button>
+                    </div>
+                    <div id="githubConnected" style="display: none; margin-top: 12px;">
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; color: #10b981; margin-bottom: 6px;">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>GitHub 연결됨</strong>
+                            </div>
+                            <small style="color: var(--text-secondary); display: block;">자동 동기화: 5분마다 | Gist ID: <span id="gistIdDisplay">로딩중...</span></small>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <button class="btn-secondary" id="syncNowBtn" style="flex: 1;">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>지금 동기화</span>
+                            </button>
+                            <button class="btn-secondary" id="pullDataBtn" style="flex: 1;">
+                                <i class="fas fa-cloud-download-alt"></i>
+                                <span>클라우드에서 가져오기</span>
+                            </button>
+                        </div>
+                        <button class="btn-secondary" id="disconnectGithubBtn" style="width: 100%; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                            <i class="fas fa-unlink"></i>
+                            <span>연결 해제</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>로컬 백업 & 복원</label>
+                    <div style="display: flex; gap: 12px; margin-top: 8px;">
+                        <button class="btn-secondary" id="backupBtn" style="flex: 1;">
+                            <i class="fas fa-download"></i>
+                            <span>백업 다운로드</span>
+                        </button>
+                        <button class="btn-secondary" id="restoreBtn" style="flex: 1;">
+                            <i class="fas fa-upload"></i>
+                            <span>백업 복원</span>
+                        </button>
+                    </div>
+                    <input type="file" id="restoreFileInput" accept=".json" style="display: none;">
+                    <small>로컬 파일로 백업/복원 (GitHub 동기화와 별개)</small>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" id="cancelSettingsBtn">취소</button>
@@ -248,6 +379,409 @@
         </div>
     </div>
 
+    <!-- Footer Bookmark Bar -->
+    <footer class="footer-bookmark-bar" id="footerBookmarkBar">
+        <button class="footer-settings-btn" id="footerSettingsBtn" title="푸터 설정">
+            <i class="fas fa-cog"></i>
+        </button>
+        <div class="footer-bookmarks" id="footerBookmarks">
+            <!-- 아이콘 북마크들이 동적으로 추가됩니다 -->
+        </div>
+        <button class="footer-add-btn" id="footerAddBtn" title="북마크 추가">
+            <i class="fas fa-plus"></i>
+        </button>
+    </footer>
+
+    <!-- Footer Bookmark Modal -->
+    <div class="modal" id="footerBookmarkModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2 id="footerBookmarkModalTitle">푸터 북마크 추가</h2>
+                <button class="modal-close" id="closeFooterBookmarkModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="footerBookmarkTitle">이름</label>
+                    <input type="text" id="footerBookmarkTitle" placeholder="Google" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="footerBookmarkUrl">URL</label>
+                    <input type="text" id="footerBookmarkUrl" placeholder="https://www.google.com" class="form-input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelFooterBookmarkBtn">취소</button>
+                <button class="btn-primary" id="saveFooterBookmarkBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Settings Modal -->
+    <div class="modal" id="footerSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>푸터 설정</h2>
+                <button class="modal-close" id="closeFooterSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="footerWidgetSize">푸터 크기: <span id="footerWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="footerWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>푸터 아이콘 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelFooterSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveFooterSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather Settings Modal -->
+    <div class="modal" id="weatherSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>날씨 위젯 설정</h2>
+                <button class="modal-close" id="closeWeatherSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="weatherCity">도시명</label>
+                    <input type="text" id="weatherCity" placeholder="Ulsan" class="form-input">
+                    <small>날씨를 표시할 도시 이름 (영문)</small>
+                </div>
+                <div class="form-group">
+                    <label for="weatherApiKey">OpenWeatherMap API Key</label>
+                    <input type="text" id="weatherApiKey" placeholder="API Key" class="form-input">
+                    <small>OpenWeatherMap API 키 · <a href="https://openweathermap.org/api" target="_blank">무료 발급</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="weatherUnit">온도 단위</label>
+                    <select id="weatherUnit" class="form-input">
+                        <option value="metric">섭씨 (°C)</option>
+                        <option value="imperial">화씨 (°F)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="weatherWidgetSize">위젯 크기: <span id="weatherWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="weatherWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>위젯 표시 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelWeatherSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveWeatherSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clock Settings Modal -->
+    <div class="modal" id="clockSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>시계 위젯 설정</h2>
+                <button class="modal-close" id="closeClockSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="clockTimezone">도시 선택</label>
+                    <select id="clockTimezone" class="form-input">
+                        <option value="Asia/Seoul">서울 (Seoul)</option>
+                        <option value="America/New_York">뉴욕 (New York)</option>
+                        <option value="America/Los_Angeles">로스앤젤레스 (Los Angeles)</option>
+                        <option value="Europe/London">런던 (London)</option>
+                        <option value="Europe/Paris">파리 (Paris)</option>
+                        <option value="Asia/Tokyo">도쿄 (Tokyo)</option>
+                        <option value="Asia/Shanghai">상하이 (Shanghai)</option>
+                        <option value="Asia/Dubai">두바이 (Dubai)</option>
+                        <option value="Australia/Sydney">시드니 (Sydney)</option>
+                    </select>
+                    <small>선택한 도시의 현지 시간이 표시됩니다</small>
+                </div>
+                <div class="form-group">
+                    <label for="clockFormat">시간 형식</label>
+                    <select id="clockFormat" class="form-input">
+                        <option value="24">24시간 형식 (15:30)</option>
+                        <option value="12">12시간 형식 (3:30 PM)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="clockShowSeconds"> 초 표시
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="clockDateFormat">날짜 형식</label>
+                    <select id="clockDateFormat" class="form-input">
+                        <option value="ko">한국어 (2026년 2월 19일)</option>
+                        <option value="en">English (Feb 19, 2026)</option>
+                        <option value="iso">ISO (2026-02-19)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="clockWidgetSize">위젯 크기: <span id="clockWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="clockWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>위젯 표시 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelClockSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveClockSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Settings Modal -->
+    <div class="modal" id="searchSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>검색 위젯 설정</h2>
+                <button class="modal-close" id="closeSearchSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>검색 엔진 관리</label>
+                    <div id="searchEngineList" class="search-engine-list">
+                        <!-- 동적으로 추가됨 -->
+                    </div>
+                    <button class="btn-primary" id="addSearchEngineBtn" style="margin-top: 8px;">
+                        <i class="fas fa-plus"></i> 검색 엔진 추가
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label for="searchWidgetSize">위젯 크기: <span id="searchWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="searchWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>위젯 표시 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelSearchSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveSearchSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Settings Modal -->
+    <div class="modal" id="currencySettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>환율 위젯 설정</h2>
+                <button class="modal-close" id="closeCurrencySettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>표시할 통화</label>
+                    <small>체크한 통화만 위젯에 표시됩니다</small>
+                    <div style="margin-top: 8px;">
+                        <label><input type="checkbox" id="currencyUSD" checked> USD (미국 달러)</label><br>
+                        <label><input type="checkbox" id="currencyEUR"> EUR (유로)</label><br>
+                        <label><input type="checkbox" id="currencyJPY" checked> JPY (일본 엔)</label><br>
+                        <label><input type="checkbox" id="currencyCNY"> CNY (중국 위안)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="currencyWidgetSize">위젯 크기: <span id="currencyWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="currencyWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>위젯 표시 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelCurrencySettingsBtn">취소</button>
+                <button class="btn-primary" id="saveCurrencySettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Settings Modal -->
+    <div class="modal" id="stockSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>주식 위젯 설정</h2>
+                <button class="modal-close" id="closeStockSettingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>표시할 지수</label>
+                    <small>체크한 지수만 위젯에 표시됩니다</small>
+                    <div style="margin-top: 8px;">
+                        <label><input type="checkbox" id="stockKOSPI" checked> KOSPI (한국 종합주가지수)</label><br>
+                        <label><input type="checkbox" id="stockKOSDAQ"> KOSDAQ (코스닥)</label><br>
+                        <label><input type="checkbox" id="stockSP500"> S&P 500 (미국)</label><br>
+                        <label><input type="checkbox" id="stockNASDAQ"> NASDAQ (나스닥)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>개별 종목 (최대 4개)</label>
+                    <small>종목 코드를 입력하세요 (예: 005930 = 삼성전자, 035720 = 카카오)</small>
+                    <div id="stockSymbolList" class="stock-symbol-list">
+                        <!-- 동적으로 추가됨 -->
+                    </div>
+                    <button class="btn-primary" id="addStockSymbolBtn" style="margin-top: 8px;">
+                        <i class="fas fa-plus"></i> 종목 추가
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label for="stockWidgetSize">위젯 크기: <span id="stockWidgetSizeValue">100</span>%</label>
+                    <input type="range" id="stockWidgetSize" min="50" max="150" value="100" step="5" class="font-slider">
+                    <small>위젯 표시 크기 조절 (50% ~ 150%)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelStockSettingsBtn">취소</button>
+                <button class="btn-primary" id="saveStockSettingsBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clock Detail Modal -->
+    <div class="modal" id="clockModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>시계 상세 정보</h2>
+                <button class="modal-close" id="closeClockModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="clock-detail">
+                    <div class="clock-detail-large" id="clockDetailTime">00:00:00</div>
+                    <div class="clock-detail-date" id="clockDetailDate">Loading...</div>
+                    <div class="clock-detail-timezone" id="clockDetailTimezone">Asia/Seoul</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Detail Modal -->
+    <div class="modal" id="currencyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>환율 상세 정보</h2>
+                <button class="modal-close" id="closeCurrencyModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="currency-detail-grid" id="currencyDetailBody">
+                    <!-- 동적으로 추가됨 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Detail Modal -->
+    <div class="modal" id="stockModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>주식 상세 정보</h2>
+                <button class="modal-close" id="closeStockModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-detail-grid" id="stockDetailBody">
+                    <!-- 동적으로 추가됨 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather Detail Modal -->
+    <div class="modal" id="weatherModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>날씨 상세 정보</h2>
+                <button class="modal-close" id="closeWeatherModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="weatherDetailBody">
+                <div class="weather-detail-grid">
+                    <div class="weather-detail-item">
+                        <i class="fas fa-sun"></i>
+                        <div>
+                            <div class="detail-label">일출</div>
+                            <div class="detail-value" id="sunrise">--:--</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-moon"></i>
+                        <div>
+                            <div class="detail-label">일몰</div>
+                            <div class="detail-value" id="sunset">--:--</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-water"></i>
+                        <div>
+                            <div class="detail-label">습도</div>
+                            <div class="detail-value" id="humidity">--%</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-wind"></i>
+                        <div>
+                            <div class="detail-label">풍속</div>
+                            <div class="detail-value" id="windSpeed">-- m/s</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-compass"></i>
+                        <div>
+                            <div class="detail-label">풍향</div>
+                            <div class="detail-value" id="windDirection">--</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <div>
+                            <div class="detail-label">기압</div>
+                            <div class="detail-value" id="pressure">-- hPa</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-water"></i>
+                        <div>
+                            <div class="detail-label">파도 높이</div>
+                            <div class="detail-value" id="waveHeight">-- m</div>
+                        </div>
+                    </div>
+                    <div class="weather-detail-item">
+                        <i class="fas fa-compass"></i>
+                        <div>
+                            <div class="detail-label">파도 방향</div>
+                            <div class="detail-value" id="waveDirection">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="weather-forecast" id="weatherForecast">
+                    <!-- 주간 날씨 예보 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="js/utils.js"></script>
+    <script src="js/github-sync.js"></script>
+    <script src="js/widgets.js"></script>
+    <script src="js/modals.js"></script>
+    <script src="js/footer.js"></script>
+    <script src="js/drag-drop.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

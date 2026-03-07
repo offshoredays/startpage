@@ -1,5 +1,5 @@
 // ========================================
-// App State Management
+// App State Management (Modular Version)
 // ========================================
 class BookmarkApp {
     constructor() {
@@ -7,198 +7,176 @@ class BookmarkApp {
         this.currentEditingCategory = null;
         this.currentEditingBookmark = null;
         this.currentCategoryId = null;
+        this.currentEditingFooterBookmark = null;
         this.deleteCallback = null;
+        this.clockDetailInterval = null;
+        this.currentWeather = null;
+        
         this.settings = {
             bgImage: '',
             bgPreset: '',
             categoryFontSize: 10,
             bookmarkFontSize: 12,
             pageTitle: 'Bryan\'s Start Page',
-            pageTitleIcon: 'fa-bookmark'
+            pageTitleIcon: 'fa-bookmark',
+            // Widget Visibility
+            showWeatherWidget: true,
+            showClockWidget: true,
+            showCurrencyWidget: true,
+            showStockWidget: true,
+            showSearchWidget: true,
+            showFooterWidget: true,
+            // Widget Sizes
+            weatherWidgetSize: 1,
+            clockWidgetSize: 1,
+            searchWidgetSize: 1,
+            footerWidgetSize: 1,
+            currencyWidgetSize: 1,
+            stockWidgetSize: 1,
+            // Weather
+            weatherCity: 'Ulsan',
+            weatherApiKey: 'a88bc08194a466a6c8681b5bea96e68b',
+            weatherUnit: 'metric',
+            // Clock
+            clockFormat: 24,
+            clockShowSeconds: false,
+            clockDateFormat: 'ko',
+            clockTimezone: 'Asia/Seoul',
+            // Search
+            defaultSearchEngine: 'google',
+            searchEngines: {
+                google: { url: 'https://www.google.com/search?q=', icon: 'https://www.google.com/favicon.ico' },
+                youtube: { url: 'https://www.youtube.com/results?search_query=', icon: 'https://www.youtube.com/favicon.ico' },
+                naver: { url: 'https://search.naver.com/search.naver?query=', icon: 'https://www.naver.com/favicon.ico' }
+            },
+            // Stock
+            stockKOSPI: true,
+            stockKOSDAQ: false,
+            stockSP500: false,
+            stockNASDAQ: false,
+            stockSymbols: [],
+            // Currency
+            currencyUSD: true,
+            currencyEUR: false,
+            currencyJPY: true,
+            currencyCNY: false
         };
+        
+        this.footerBookmarks = [];
+        
+        // Initialize GitHub Sync
+        this.githubSync = null;
         
         this.init();
     }
 
-    init() {
-        this.loadData();
+    async init() {
+        // Initialize GitHub Sync first
+        this.githubSync = new GitHubSync(this);
+        
+        // Try to load from cloud first, fallback to localStorage
+        if (this.githubSync.isConfigured()) {
+            await this.githubSync.initialSync();
+        } else {
+            this.loadData();
+        }
+        
         this.loadSettings();
+        loadFooterBookmarks(this);
         this.setupEventListeners();
         this.render();
         this.initTheme();
         this.applyBackgroundSettings();
         this.applyFontSizes();
         this.applyPageTitle();
+        applyWidgetSizes(this);
+        applyWidgetVisibility(this);
+        
+        // Initialize widgets using external modules
+        initWeatherWidget(this);
+        initClockWidget(this);
+        initCurrencyWidget(this);
+        initStockWidget(this);
+        initSearchWidget(this);
+        renderFooterBookmarks(this);
+        
+        // Setup modal close events
+        setupModalCloseEvents(this);
+        
+        // Restore widget order and enable drag-drop
+        restoreWidgetOrder(this);
+        initDragDrop(this);
+        
+        // Start auto-sync if configured
+        if (this.githubSync.isConfigured()) {
+            this.githubSync.startAutoSync(5); // Auto-sync every 5 minutes
+        }
     }
 
-    // ========================================
-    // Data Management
-    // ========================================
     loadData() {
         const savedData = localStorage.getItem('bookmarkData');
         if (savedData) {
             this.categories = JSON.parse(savedData);
         } else {
-            // 샘플 데이터 로드
             this.loadSampleData();
         }
     }
 
     saveData() {
+        this.saveToLocalStorage();
+        
+        // Sync to GitHub if configured
+        if (this.githubSync && this.githubSync.isConfigured()) {
+            this.githubSync.pushData();
+        }
+    }
+    
+    saveToLocalStorage() {
         localStorage.setItem('bookmarkData', JSON.stringify(this.categories));
     }
 
     loadSettings() {
         const savedSettings = localStorage.getItem('settings');
         if (savedSettings) {
-            this.settings = JSON.parse(savedSettings);
+            const saved = JSON.parse(savedSettings);
+            this.settings = { ...this.settings, ...saved };
         }
     }
 
     saveSettings() {
         localStorage.setItem('settings', JSON.stringify(this.settings));
-    }
-
-    applyBackgroundSettings() {
-        const body = document.body;
-        // Reset
-        body.style.removeProperty('--bg-image');
-        body.style.background = '';
         
-        if (this.settings.bgImage) {
-            body.style.setProperty('--bg-image', `url(${this.settings.bgImage})`);
-        } else if (this.settings.customBg) {
-            body.style.background = this.settings.customBg;
-        } else if (this.settings.bgPreset) {
-            body.style.background = this.settings.bgPreset;
+        // Sync to GitHub if configured
+        if (this.githubSync && this.githubSync.isConfigured()) {
+            this.githubSync.pushData();
         }
-    }
-
-    applyPageTitle() {
-        const titleText = this.settings.pageTitle || 'Bryan\'s Start Page';
-        const titleIcon = this.settings.pageTitleIcon || 'fa-bookmark';
-        
-        // Update page title
-        document.title = titleText;
-        
-        // Update header title
-        const logoH1 = document.querySelector('.logo h1');
-        if (logoH1) {
-            logoH1.textContent = titleText;
-        }
-        
-        // Update header icon
-        const logoIcon = document.querySelector('.logo i');
-        if (logoIcon) {
-            logoIcon.className = `fas ${titleIcon}`;
-        }
-    }
-
-    applyFontSizes() {
-        const root = document.documentElement;
-        const categoryFontSize = this.settings.categoryFontSize || 10;
-        const bookmarkFontSize = this.settings.bookmarkFontSize || 12;
-        
-        console.log('Applying font sizes:', { categoryFontSize, bookmarkFontSize });
-        
-        // 카테고리 제목 폰트 크기
-        root.style.setProperty('--category-title-size', `${categoryFontSize}px`);
-        // 카테고리 아이콘 크기 (폰트 크기와 비슷하게 - 1.3배)
-        root.style.setProperty('--category-icon-size', `${Math.round(categoryFontSize * 1.3)}px`);
-        // 카테고리 아이콘 폰트 크기 (제목과 거의 동일)
-        root.style.setProperty('--category-icon-font', `${Math.round(categoryFontSize * 0.9)}px`);
-        
-        // 북마크 제목 폰트 크기
-        root.style.setProperty('--bookmark-title-size', `${bookmarkFontSize}px`);
-        // 북마크 아이콘 크기 (폰트 크기의 1.5배)
-        root.style.setProperty('--bookmark-icon-size', `${Math.round(bookmarkFontSize * 1.5)}px`);
-        // 북마크 아이콘 이미지 크기
-        root.style.setProperty('--bookmark-icon-img', `${Math.round(bookmarkFontSize * 1.2)}px`);
-        
-        // 북마크 폰트 크기에 따라 가로 갯수 조절
-        let bookmarkColumns;
-        if (bookmarkFontSize <= 11) {
-            bookmarkColumns = 5; // 작은 폰트: 5개
-        } else if (bookmarkFontSize <= 15) {
-            bookmarkColumns = 4; // 중간 폰트: 4개
-        } else {
-            bookmarkColumns = 3; // 큰 폰트: 3개
-        }
-        root.style.setProperty('--bookmark-columns', bookmarkColumns);
-        
-        console.log('Font sizes applied to :root', {
-            categoryTitle: root.style.getPropertyValue('--category-title-size'),
-            bookmarkTitle: root.style.getPropertyValue('--bookmark-title-size'),
-            bookmarkColumns: bookmarkColumns
-        });
     }
 
     loadSampleData() {
         this.categories = [
             {
-                id: this.generateId(),
+                id: generateId(),
                 name: '업무',
                 icon: 'fa-briefcase',
-                color: '',
+                color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 bgColor: '',
                 collapsed: false,
                 bookmarks: [
-                    {
-                        id: this.generateId(),
-                        title: 'Google',
-                        url: 'https://www.google.com',
-                        description: '검색 엔진'
-                    },
-                    {
-                        id: this.generateId(),
-                        title: 'Gmail',
-                        url: 'https://mail.google.com',
-                        description: '이메일'
-                    },
-                    {
-                        id: this.generateId(),
-                        title: 'Google Drive',
-                        url: 'https://drive.google.com',
-                        description: '클라우드 스토리지'
-                    }
+                    { id: generateId(), title: 'Google', url: 'https://www.google.com', description: '검색 엔진', icon: '' },
+                    { id: generateId(), title: 'Gmail', url: 'https://mail.google.com', description: '이메일', icon: '' },
+                    { id: generateId(), title: 'Google Drive', url: 'https://drive.google.com', description: '클라우드 저장소', icon: '' }
                 ]
             },
             {
-                id: this.generateId(),
+                id: generateId(),
                 name: '개인',
                 icon: 'fa-heart',
-                color: 'linear-gradient(135deg, #ec4899, #db2777)',
+                color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                 bgColor: '',
                 collapsed: false,
                 bookmarks: [
-                    {
-                        id: this.generateId(),
-                        title: 'YouTube',
-                        url: 'https://www.youtube.com',
-                        description: '동영상 플랫폼'
-                    },
-                    {
-                        id: this.generateId(),
-                        title: 'GitHub',
-                        url: 'https://github.com',
-                        description: '코드 저장소'
-                    }
-                ]
-            },
-            {
-                id: this.generateId(),
-                name: '쇼핑',
-                icon: 'fa-shopping-cart',
-                color: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                bgColor: '',
-                collapsed: false,
-                bookmarks: [
-                    {
-                        id: this.generateId(),
-                        title: 'Amazon',
-                        url: 'https://www.amazon.com',
-                        description: '온라인 쇼핑'
-                    }
+                    { id: generateId(), title: 'YouTube', url: 'https://www.youtube.com', description: '동영상 플랫폼', icon: '' },
+                    { id: generateId(), title: 'GitHub', url: 'https://www.github.com', description: '코드 저장소', icon: '' }
                 ]
             }
         ];
@@ -206,66 +184,165 @@ class BookmarkApp {
     }
 
     generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        return generateId();
     }
 
-    // ========================================
-    // Theme Management
-    // ========================================
+    getFaviconUrl(url) {
+        return getFaviconUrl(url);
+    }
+
+    // Theme
     initTheme() {
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateThemeIcon(savedTheme);
+        this.updateThemeIcon();
     }
 
     toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        const current = document.documentElement.getAttribute('data-theme');
+        const newTheme = current === 'light' ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
-        this.updateThemeIcon(newTheme);
+        this.updateThemeIcon();
     }
 
-    updateThemeIcon(theme) {
+    updateThemeIcon() {
+        const theme = document.documentElement.getAttribute('data-theme');
         const icon = document.querySelector('#themeToggle i');
         icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
     }
 
-    // ========================================
-    // Event Listeners
-    // ========================================
+    applyPageTitle() {
+        document.title = this.settings.pageTitle || 'Bryan\'s Start Page';
+        const logoIcon = document.querySelector('.logo i');
+        const logoH1 = document.querySelector('.logo h1');
+        if (logoIcon) logoIcon.className = `fas ${this.settings.pageTitleIcon || 'fa-bookmark'}`;
+        if (logoH1) logoH1.textContent = this.settings.pageTitle || 'Bryan\'s Start Page';
+    }
+
+    applyBackgroundSettings() {
+        if (this.settings.bgImage) {
+            document.body.style.backgroundImage = `url("${this.settings.bgImage}")`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundAttachment = 'fixed';
+        } else if (this.settings.bgPreset) {
+            document.body.style.backgroundImage = this.settings.bgPreset;
+            document.body.style.backgroundSize = 'cover';
+        } else if (this.settings.bgCustomColor) {
+            document.body.style.backgroundImage = 'none';
+            document.body.style.background = this.settings.bgCustomColor;
+        } else {
+            document.body.style.backgroundImage = 'none';
+            document.body.style.background = '';
+        }
+    }
+
+    applyFontSizes() {
+        const categoryFontSize = this.settings.categoryFontSize || 10;
+        const bookmarkFontSize = this.settings.bookmarkFontSize || 12;
+        
+        document.documentElement.style.setProperty('--category-title-size', `${categoryFontSize}px`);
+        document.documentElement.style.setProperty('--category-icon-size', `${Math.round(categoryFontSize * 1.3)}px`);
+        document.documentElement.style.setProperty('--category-icon-font', `${Math.max(Math.round(categoryFontSize * 0.9), 8)}px`);
+        document.documentElement.style.setProperty('--bookmark-title-size', `${bookmarkFontSize}px`);
+        document.documentElement.style.setProperty('--bookmark-icon-size', `${Math.round(bookmarkFontSize * 1.5)}px`);
+        document.documentElement.style.setProperty('--bookmark-icon-img', `${Math.round(bookmarkFontSize * 1.2)}px`);
+        
+        // 북마크 폰트 크기에 따라 컬럼 수 조절
+        if (bookmarkFontSize <= 11) {
+            document.documentElement.style.setProperty('--bookmark-columns', '5');
+        } else if (bookmarkFontSize >= 16) {
+            document.documentElement.style.setProperty('--bookmark-columns', '3');
+        } else {
+            document.documentElement.style.setProperty('--bookmark-columns', '4');
+        }
+    }
+
     setupEventListeners() {
         // Theme toggle
-        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
-
+        document.getElementById('themeToggle')?.addEventListener('click', () => this.toggleTheme());
+        
         // Settings button
-        document.getElementById('settingsBtn').addEventListener('click', () => this.openSettingsModal());
-
-        // Add category
-        document.getElementById('addCategoryBtn').addEventListener('click', () => this.openCategoryModal());
-
+        document.getElementById('settingsBtn')?.addEventListener('click', () => this.openSettingsModal());
+        
         // Category modal
-        document.getElementById('closeCategoryModal').addEventListener('click', () => this.closeCategoryModal());
-        document.getElementById('cancelCategoryBtn').addEventListener('click', () => this.closeCategoryModal());
-        document.getElementById('saveCategoryBtn').addEventListener('click', () => this.saveCategory());
-
+        document.getElementById('closeCategoryModal')?.addEventListener('click', () => this.closeCategoryModal());
+        document.getElementById('cancelCategoryBtn')?.addEventListener('click', () => this.closeCategoryModal());
+        document.getElementById('saveCategoryBtn')?.addEventListener('click', () => this.saveCategory());
+        
         // Bookmark modal
-        document.getElementById('closeBookmarkModal').addEventListener('click', () => this.closeBookmarkModal());
-        document.getElementById('cancelBookmarkBtn').addEventListener('click', () => this.closeBookmarkModal());
-        document.getElementById('saveBookmarkBtn').addEventListener('click', () => this.saveBookmark());
-
+        document.getElementById('closeBookmarkModal')?.addEventListener('click', () => this.closeBookmarkModal());
+        document.getElementById('cancelBookmarkBtn')?.addEventListener('click', () => this.closeBookmarkModal());
+        document.getElementById('saveBookmarkBtn')?.addEventListener('click', () => this.saveBookmark());
+        
         // Delete modal
-        document.getElementById('closeDeleteModal').addEventListener('click', () => this.closeDeleteModal());
-        document.getElementById('cancelDeleteBtn').addEventListener('click', () => this.closeDeleteModal());
-        document.getElementById('confirmDeleteBtn').addEventListener('click', () => this.confirmDelete());
-
+        document.getElementById('closeDeleteModal')?.addEventListener('click', () => this.closeDeleteModal());
+        document.getElementById('cancelDeleteBtn')?.addEventListener('click', () => this.closeDeleteModal());
+        document.getElementById('confirmDeleteBtn')?.addEventListener('click', () => this.confirmDelete());
+        
         // Settings modal
-        document.getElementById('closeSettingsModal').addEventListener('click', () => this.closeSettingsModal());
-        document.getElementById('cancelSettingsBtn').addEventListener('click', () => this.closeSettingsModal());
-        document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettingsData());
+        document.getElementById('closeSettingsModal')?.addEventListener('click', () => this.closeSettingsModal());
+        document.getElementById('cancelSettingsBtn')?.addEventListener('click', () => this.closeSettingsModal());
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', () => this.saveSettingsData());
+        
+        // Widget settings buttons
+        document.getElementById('weatherSettingsBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openWeatherSettingsModal();
+        });
+        document.getElementById('clockSettingsBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openClockSettingsModal();
+        });
+        document.getElementById('searchSettingsBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openSearchSettingsModal();
+        });
+        document.getElementById('currencySettingsBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openCurrencySettingsModal();
+        });
 
-        // Search
-        document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e.target.value));
+        // Widget settings modals - Weather
+        document.getElementById('closeWeatherSettingsModal')?.addEventListener('click', () => this.closeWeatherSettingsModal());
+        document.getElementById('cancelWeatherSettingsBtn')?.addEventListener('click', () => this.closeWeatherSettingsModal());
+        document.getElementById('saveWeatherSettingsBtn')?.addEventListener('click', () => this.saveWeatherSettings());
+
+        // Widget settings modals - Clock
+        document.getElementById('closeClockSettingsModal')?.addEventListener('click', () => this.closeClockSettingsModal());
+        document.getElementById('cancelClockSettingsBtn')?.addEventListener('click', () => this.closeClockSettingsModal());
+        document.getElementById('saveClockSettingsBtn')?.addEventListener('click', () => this.saveClockSettings());
+
+        // Widget settings modals - Search
+        document.getElementById('closeSearchSettingsModal')?.addEventListener('click', () => this.closeSearchSettingsModal());
+        document.getElementById('cancelSearchSettingsBtn')?.addEventListener('click', () => this.closeSearchSettingsModal());
+        document.getElementById('saveSearchSettingsBtn')?.addEventListener('click', () => this.saveSearchSettings());
+        document.getElementById('addSearchEngineBtn')?.addEventListener('click', () => this.addSearchEngine());
+
+        // Widget settings modals - Currency
+        document.getElementById('closeCurrencySettingsModal')?.addEventListener('click', () => this.closeCurrencySettingsModal());
+        document.getElementById('cancelCurrencySettingsBtn')?.addEventListener('click', () => this.closeCurrencySettingsModal());
+        document.getElementById('saveCurrencySettingsBtn')?.addEventListener('click', () => this.saveCurrencySettings());
+
+        // Widget settings modals - Stock
+        document.getElementById('closeStockSettingsModal')?.addEventListener('click', () => this.closeStockSettingsModal());
+        document.getElementById('cancelStockSettingsBtn')?.addEventListener('click', () => this.closeStockSettingsModal());
+        document.getElementById('saveStockSettingsBtn')?.addEventListener('click', () => this.saveStockSettings());
+        document.getElementById('addStockSymbolBtn')?.addEventListener('click', () => this.addStockSymbol());
+
+        // Backup & Restore
+        document.getElementById('backupBtn')?.addEventListener('click', () => this.backupData());
+        document.getElementById('restoreBtn')?.addEventListener('click', () => {
+            document.getElementById('restoreFileInput').click();
+        });
+        document.getElementById('restoreFileInput')?.addEventListener('change', (e) => this.restoreData(e));
+        
+        // GitHub Sync
+        document.getElementById('connectGithubBtn')?.addEventListener('click', () => this.connectGitHub());
+        document.getElementById('disconnectGithubBtn')?.addEventListener('click', () => this.disconnectGitHub());
+        document.getElementById('syncNowBtn')?.addEventListener('click', () => this.syncNow());
+        document.getElementById('pullDataBtn')?.addEventListener('click', () => this.pullFromCloud());
 
         // Close modals on outside click
         document.querySelectorAll('.modal').forEach(modal => {
@@ -277,7 +354,7 @@ class BookmarkApp {
         });
 
         // Enter key handlers
-        document.getElementById('categoryName').addEventListener('keypress', (e) => {
+        document.getElementById('categoryName')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.saveCategory();
         });
 
@@ -300,11 +377,11 @@ class BookmarkApp {
         });
 
         // Category background color picker
-        document.getElementById('categoryBgPicker').addEventListener('input', (e) => {
+        document.getElementById('categoryBgPicker')?.addEventListener('input', (e) => {
             document.getElementById('categoryBgColor').value = e.target.value;
         });
 
-        document.getElementById('categoryBgColor').addEventListener('input', (e) => {
+        document.getElementById('categoryBgColor')?.addEventListener('input', (e) => {
             const value = e.target.value;
             if (value.startsWith('#') && value.length === 7) {
                 document.getElementById('categoryBgPicker').value = value;
@@ -312,11 +389,11 @@ class BookmarkApp {
         });
 
         // Background color picker
-        document.getElementById('bgColorPicker').addEventListener('input', (e) => {
+        document.getElementById('bgColorPicker')?.addEventListener('input', (e) => {
             document.getElementById('bgCustomColor').value = e.target.value;
         });
 
-        document.getElementById('bgCustomColor').addEventListener('input', (e) => {
+        document.getElementById('bgCustomColor')?.addEventListener('input', (e) => {
             const value = e.target.value;
             if (value.startsWith('#') && value.length === 7) {
                 document.getElementById('bgColorPicker').value = value;
@@ -338,62 +415,67 @@ class BookmarkApp {
         const categoryInput = document.getElementById('categoryFontSizeInput');
         const categoryValue = document.getElementById('categoryFontSizeValue');
         
-        categorySlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            categoryInput.value = value;
-            categoryValue.textContent = value;
-        });
-        
-        categoryInput.addEventListener('input', (e) => {
-            const value = Math.max(6, Math.min(20, parseInt(e.target.value) || 10));
-            categorySlider.value = value;
-            categoryValue.textContent = value;
-            e.target.value = value;
-        });
+        if (categorySlider && categoryInput && categoryValue) {
+            categorySlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                categoryInput.value = value;
+                categoryValue.textContent = value;
+            });
+            
+            categoryInput.addEventListener('input', (e) => {
+                const value = Math.max(6, Math.min(20, parseInt(e.target.value) || 10));
+                categorySlider.value = value;
+                categoryValue.textContent = value;
+                e.target.value = value;
+            });
+        }
 
         const bookmarkSlider = document.getElementById('bookmarkFontSize');
         const bookmarkInput = document.getElementById('bookmarkFontSizeInput');
         const bookmarkValue = document.getElementById('bookmarkFontSizeValue');
         
-        bookmarkSlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            bookmarkInput.value = value;
-            bookmarkValue.textContent = value;
-        });
-        
-        bookmarkInput.addEventListener('input', (e) => {
-            const value = Math.max(8, Math.min(20, parseInt(e.target.value) || 12));
-            bookmarkSlider.value = value;
-            bookmarkValue.textContent = value;
-            e.target.value = value;
-        });
+        if (bookmarkSlider && bookmarkInput && bookmarkValue) {
+            bookmarkSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                bookmarkInput.value = value;
+                bookmarkValue.textContent = value;
+            });
+            
+            bookmarkInput.addEventListener('input', (e) => {
+                const value = Math.max(8, Math.min(20, parseInt(e.target.value) || 12));
+                bookmarkSlider.value = value;
+                bookmarkValue.textContent = value;
+                e.target.value = value;
+            });
+        }
 
-        document.getElementById('bookmarkUrl').addEventListener('keypress', (e) => {
+        document.getElementById('bookmarkUrl')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.saveBookmark();
         });
+        
+        // Search input
+        document.getElementById('searchInput')?.addEventListener('input', (e) => this.handleSearch(e.target.value));
     }
 
-    // ========================================
-    // Rendering
-    // ========================================
     render() {
         const wrapper = document.getElementById('categoriesWrapper');
+        if (!wrapper) return;
+        
         wrapper.innerHTML = '';
 
         this.categories.forEach((category, categoryIndex) => {
-            const categoryCard = this.createCategoryCard(category, categoryIndex);
-            wrapper.appendChild(categoryCard);
+            wrapper.appendChild(this.createCategoryCard(category, categoryIndex));
         });
 
-        // Add category 버튼 추가
-        const addCategoryCard = document.createElement('div');
-        addCategoryCard.className = 'add-category-card';
-        addCategoryCard.onclick = () => this.openCategoryModal();
-        addCategoryCard.innerHTML = `
-            <i class="fas fa-folder-plus"></i>
-            <span>새 카테고리 추가</span>
+        // Add category card
+        const addCard = document.createElement('div');
+        addCard.className = 'add-category-card';
+        addCard.innerHTML = `
+            <i class="fas fa-plus"></i>
+            <span>카테고리 추가</span>
         `;
-        wrapper.appendChild(addCategoryCard);
+        addCard.addEventListener('click', () => this.openCategoryModal());
+        wrapper.appendChild(addCard);
 
         this.setupDragAndDrop();
     }
@@ -402,20 +484,19 @@ class BookmarkApp {
         const card = document.createElement('div');
         card.className = 'category-card';
         card.setAttribute('draggable', 'true');
-        card.setAttribute('data-category-id', category.id);
+        card.dataset.categoryId = category.id;
         
-        // Apply category background color if exists
         if (category.bgColor) {
             card.style.backgroundColor = category.bgColor;
         }
-
+        
         const iconStyle = category.color ? `style="background: ${category.color}"` : '';
-
+        
         card.innerHTML = `
             <div class="category-header">
                 <div class="category-title">
                     <div class="category-icon" ${iconStyle}>
-                        <i class="fas ${category.icon}"></i>
+                        <i class="fas ${category.icon || 'fa-folder'}"></i>
                     </div>
                     <h2>${category.name}</h2>
                 </div>
@@ -431,35 +512,38 @@ class BookmarkApp {
                     </button>
                 </div>
             </div>
-            <div class="bookmarks-grid ${category.collapsed ? 'collapsed' : ''}" id="bookmarks-${category.id}" data-category-id="${category.id}">
+            <div class="bookmarks-grid ${category.collapsed ? 'collapsed' : ''}" id="bookmarks-${category.id}">
                 ${category.bookmarks.map((bookmark, bookmarkIndex) => this.createBookmarkHTML(bookmark, category.id, bookmarkIndex)).join('')}
                 <div class="add-bookmark-btn" onclick="app.openBookmarkModal('${category.id}')">
                     <i class="fas fa-plus"></i>
-                    <span>추가</span>
+                    <span>북마크 추가</span>
                 </div>
             </div>
         `;
-
+        
         return card;
     }
 
     createBookmarkHTML(bookmark, categoryId, bookmarkIndex) {
-        const favicon = this.getFaviconUrl(bookmark.url);
+        const faviconUrl = this.getFaviconUrl(bookmark.url);
+        
         return `
-            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}" onclick="app.openBookmark('${bookmark.url}')">
+            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}">
                 <div class="bookmark-content">
                     <div class="bookmark-favicon">
-                        <img src="${favicon}" alt="${bookmark.title}" onerror="this.src='https://via.placeholder.com/24?text=?'">
+                        <img src="${faviconUrl}" alt="${bookmark.title}" 
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><text y=%2218%22 font-size=%2220%22>🔖</text></svg>'">
                     </div>
                     <div class="bookmark-info">
                         <div class="bookmark-title">${bookmark.title}</div>
+                        ${bookmark.description ? `<div class="bookmark-description">${bookmark.description}</div>` : ''}
                     </div>
                 </div>
                 <div class="bookmark-actions">
-                    <button class="icon-btn" onclick="event.stopPropagation(); app.editBookmark('${categoryId}', '${bookmark.id}')">
+                    <button class="icon-btn-small" onclick="event.stopPropagation(); app.editBookmark('${categoryId}', '${bookmark.id}')">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="icon-btn" onclick="event.stopPropagation(); app.deleteBookmark('${categoryId}', '${bookmark.id}')">
+                    <button class="icon-btn-small" onclick="event.stopPropagation(); app.deleteBookmark('${categoryId}', '${bookmark.id}')">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -467,79 +551,65 @@ class BookmarkApp {
         `;
     }
 
-    getFaviconUrl(url) {
-        try {
-            const domain = new URL(url).hostname;
-            return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-        } catch {
-            return 'https://via.placeholder.com/24?text=?';
+    // Category management methods continue in backup file...
+    // Due to file size, copying rest of methods from app.backup.js lines 419-1360
+    
+    toggleCategory(categoryId) {
+        const category = this.categories.find(c => c.id === categoryId);
+        if (category) {
+            category.collapsed = !category.collapsed;
+            this.saveData();
+            this.render();
         }
     }
 
-    // ========================================
-    // Category Operations
-    // ========================================
     openCategoryModal(categoryId = null) {
-        const modal = document.getElementById('categoryModal');
-        const title = document.getElementById('categoryModalTitle');
-        const nameInput = document.getElementById('categoryName');
-        const iconInput = document.getElementById('categoryIcon');
-        const colorValue = document.getElementById('categoryColorValue');
-        const bgColorInput = document.getElementById('categoryBgColor');
-        const bgColorPicker = document.getElementById('categoryBgPicker');
-
-        // Reset selections
-        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
         document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('selected'));
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
 
         if (categoryId) {
+            this.currentEditingCategory = categoryId;
             const category = this.categories.find(c => c.id === categoryId);
-            title.textContent = '카테고리 수정';
-            nameInput.value = category.name;
-            iconInput.value = category.icon;
-            colorValue.value = category.color || '';
-            bgColorInput.value = category.bgColor || '';
             
-            // Set background color picker
-            if (category.bgColor && category.bgColor.startsWith('#')) {
-                bgColorPicker.value = category.bgColor;
-            }
-            
-            // Select current icon
-            const iconOption = document.querySelector(`.icon-option[data-icon="${category.icon}"]`);
-            if (iconOption) iconOption.classList.add('selected');
-            
-            // Select current icon color
-            if (category.color) {
-                const colorOption = document.querySelector(`.color-option[data-color="${CSS.escape(category.color)}"]`);
+            if (category) {
+                document.getElementById('categoryModalTitle').textContent = '카테고리 수정';
+                document.getElementById('categoryName').value = category.name;
+                document.getElementById('categoryIcon').value = category.icon || 'fa-folder';
+                
+                const iconOption = document.querySelector(`.icon-option[data-icon="${category.icon}"]`);
+                if (iconOption) iconOption.classList.add('selected');
+                
+                document.getElementById('categoryColorValue').value = category.color || '';
+                const colorOption = document.querySelector(`.color-option[data-color="${category.color}"]`);
                 if (colorOption) {
                     colorOption.classList.add('selected');
                 } else {
-                    // 기본 색상 선택
-                    document.querySelector('.color-option[data-color="linear-gradient(135deg, #3b82f6, #2563eb)"]').classList.add('selected');
+                    const defaultColor = document.querySelector('.color-option[data-color="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"]');
+                    if (defaultColor) defaultColor.classList.add('selected');
                 }
-            } else {
-                // 빈 문자열이면 기본 블루 선택
-                document.querySelector('.color-option[data-color="linear-gradient(135deg, #3b82f6, #2563eb)"]').classList.add('selected');
+                
+                document.getElementById('categoryBgColor').value = category.bgColor || '';
+                if (category.bgColor && category.bgColor.startsWith('#')) {
+                    document.getElementById('categoryBgPicker').value = category.bgColor;
+                }
             }
-            
-            this.currentEditingCategory = categoryId;
         } else {
-            title.textContent = '카테고리 추가';
-            nameInput.value = '';
-            iconInput.value = 'fa-folder';
-            colorValue.value = 'linear-gradient(135deg, #3b82f6, #2563eb)';
-            bgColorInput.value = '';
-            bgColorPicker.value = '#ffffff';
-            // 기본 블루 색상 선택
-            document.querySelector('.color-option[data-color="linear-gradient(135deg, #3b82f6, #2563eb)"]').classList.add('selected');
+            this.currentEditingCategory = null;
+            document.getElementById('categoryModalTitle').textContent = '카테고리 추가';
+            document.getElementById('categoryName').value = '';
+            document.getElementById('categoryIcon').value = 'fa-folder';
+            document.getElementById('categoryColorValue').value = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+            document.getElementById('categoryBgColor').value = '';
+            
             const defaultIcon = document.querySelector('.icon-option[data-icon="fa-folder"]');
             if (defaultIcon) defaultIcon.classList.add('selected');
-            this.currentEditingCategory = null;
+            
+            const defaultColor = document.querySelector('.color-option[data-color="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"]');
+            if (defaultColor) defaultColor.classList.add('selected');
         }
 
-        modal.classList.add('active');
-        nameInput.focus();
+        document.getElementById('categoryModal').classList.add('active');
+        document.getElementById('categoryName').focus();
     }
 
     closeCategoryModal() {
@@ -549,24 +619,25 @@ class BookmarkApp {
 
     saveCategory() {
         const name = document.getElementById('categoryName').value.trim();
-        const icon = document.getElementById('categoryIcon').value.trim() || 'fa-folder';
-        const color = document.getElementById('categoryColorValue').value;
-        const bgColor = document.getElementById('categoryBgColor').value.trim();
-
+        
         if (!name) {
             alert('카테고리 이름을 입력해주세요.');
             return;
         }
 
+        const icon = document.getElementById('categoryIcon').value || 'fa-folder';
+        const color = document.getElementById('categoryColorValue').value || '';
+        const bgColor = document.getElementById('categoryBgColor').value || '';
+
         if (this.currentEditingCategory) {
-            // 수정
             const category = this.categories.find(c => c.id === this.currentEditingCategory);
-            category.name = name;
-            category.icon = icon;
-            category.color = color;
-            category.bgColor = bgColor;
+            if (category) {
+                category.name = name;
+                category.icon = icon;
+                category.color = color;
+                category.bgColor = bgColor;
+            }
         } else {
-            // 추가
             this.categories.push({
                 id: this.generateId(),
                 name: name,
@@ -590,7 +661,7 @@ class BookmarkApp {
     deleteCategory(categoryId) {
         const category = this.categories.find(c => c.id === categoryId);
         this.openDeleteModal(
-            `"${category.name}" 카테고리를 삭제하시겠습니까? 포함된 모든 북마크도 함께 삭제됩니다.`,
+            `"${category.name}" 카테고리와 모든 북마크를 삭제하시겠습니까?`,
             () => {
                 this.categories = this.categories.filter(c => c.id !== categoryId);
                 this.saveData();
@@ -599,43 +670,30 @@ class BookmarkApp {
         );
     }
 
-    toggleCategory(categoryId) {
-        const category = this.categories.find(c => c.id === categoryId);
-        category.collapsed = !category.collapsed;
-        this.saveData();
-        this.render();
-    }
-
-    // ========================================
-    // Bookmark Operations
-    // ========================================
     openBookmarkModal(categoryId, bookmarkId = null) {
-        const modal = document.getElementById('bookmarkModal');
-        const title = document.getElementById('bookmarkModalTitle');
-        const titleInput = document.getElementById('bookmarkTitle');
-        const urlInput = document.getElementById('bookmarkUrl');
-        const descInput = document.getElementById('bookmarkDescription');
-
         this.currentCategoryId = categoryId;
 
         if (bookmarkId) {
             const category = this.categories.find(c => c.id === categoryId);
             const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
-            title.textContent = '북마크 수정';
-            titleInput.value = bookmark.title;
-            urlInput.value = bookmark.url;
-            descInput.value = bookmark.description || '';
-            this.currentEditingBookmark = bookmarkId;
+            
+            if (bookmark) {
+                document.getElementById('bookmarkModalTitle').textContent = '북마크 수정';
+                document.getElementById('bookmarkTitle').value = bookmark.title;
+                document.getElementById('bookmarkUrl').value = bookmark.url;
+                document.getElementById('bookmarkDescription').value = bookmark.description || '';
+                this.currentEditingBookmark = bookmarkId;
+            }
         } else {
-            title.textContent = '북마크 추가';
-            titleInput.value = '';
-            urlInput.value = '';
-            descInput.value = '';
+            document.getElementById('bookmarkModalTitle').textContent = '북마크 추가';
+            document.getElementById('bookmarkTitle').value = '';
+            document.getElementById('bookmarkUrl').value = '';
+            document.getElementById('bookmarkDescription').value = '';
             this.currentEditingBookmark = null;
         }
 
-        modal.classList.add('active');
-        titleInput.focus();
+        document.getElementById('bookmarkModal').classList.add('active');
+        document.getElementById('bookmarkTitle').focus();
     }
 
     closeBookmarkModal() {
@@ -650,33 +708,27 @@ class BookmarkApp {
         const description = document.getElementById('bookmarkDescription').value.trim();
 
         if (!title || !url) {
-            alert('제목과 URL을 입력해주세요.');
-            return;
-        }
-
-        // URL 유효성 검사
-        try {
-            new URL(url);
-        } catch {
-            alert('올바른 URL을 입력해주세요.');
+            alert('제목과 URL을 모두 입력해주세요.');
             return;
         }
 
         const category = this.categories.find(c => c.id === this.currentCategoryId);
+        if (!category) return;
 
         if (this.currentEditingBookmark) {
-            // 수정
             const bookmark = category.bookmarks.find(b => b.id === this.currentEditingBookmark);
-            bookmark.title = title;
-            bookmark.url = url;
-            bookmark.description = description;
+            if (bookmark) {
+                bookmark.title = title;
+                bookmark.url = url;
+                bookmark.description = description;
+            }
         } else {
-            // 추가
             category.bookmarks.push({
                 id: this.generateId(),
                 title: title,
                 url: url,
-                description: description
+                description: description,
+                icon: ''
             });
         }
 
@@ -703,19 +755,10 @@ class BookmarkApp {
         );
     }
 
-    openBookmark(url) {
-        window.open(url, '_blank');
-    }
-
-    // ========================================
-    // Delete Modal
-    // ========================================
     openDeleteModal(message, callback) {
-        const modal = document.getElementById('deleteModal');
-        const messageEl = document.getElementById('deleteMessage');
-        messageEl.textContent = message;
+        document.getElementById('deleteMessage').textContent = message;
         this.deleteCallback = callback;
-        modal.classList.add('active');
+        document.getElementById('deleteModal').classList.add('active');
     }
 
     closeDeleteModal() {
@@ -726,53 +769,55 @@ class BookmarkApp {
     confirmDelete() {
         if (this.deleteCallback) {
             this.deleteCallback();
+            this.deleteCallback = null;
         }
         this.closeDeleteModal();
     }
 
-    // ========================================
-    // Settings Operations
-    // ========================================
     openSettingsModal() {
-        const modal = document.getElementById('settingsModal');
-        const bgImageUrl = document.getElementById('bgImageUrl');
-        const bgCustomColor = document.getElementById('bgCustomColor');
-        const bgColorPicker = document.getElementById('bgColorPicker');
+        // Widget visibility
+        document.getElementById('showWeatherWidget').checked = this.settings.showWeatherWidget !== false;
+        document.getElementById('showClockWidget').checked = this.settings.showClockWidget !== false;
+        document.getElementById('showCurrencyWidget').checked = this.settings.showCurrencyWidget !== false;
+        document.getElementById('showStockWidget').checked = this.settings.showStockWidget !== false;
+        document.getElementById('showSearchWidget').checked = this.settings.showSearchWidget !== false;
+        document.getElementById('showFooterWidget').checked = this.settings.showFooterWidget !== false;
         
-        // Page title settings
-        document.getElementById('pageTitle').value = this.settings.pageTitle || 'Bryan\'s Start Page';
-        document.getElementById('pageTitleIcon').value = this.settings.pageTitleIcon || 'fa-bookmark';
+        // Page title
+        document.getElementById('pageTitle').value = this.settings.pageTitle;
+        document.getElementById('pageTitleIcon').value = this.settings.pageTitleIcon;
         
-        // Font size settings
-        const categoryFontSize = this.settings.categoryFontSize || 10;
-        const bookmarkFontSize = this.settings.bookmarkFontSize || 12;
+        // Font sizes
+        document.getElementById('categoryFontSize').value = this.settings.categoryFontSize;
+        document.getElementById('categoryFontSizeInput').value = this.settings.categoryFontSize;
+        document.getElementById('categoryFontSizeValue').textContent = this.settings.categoryFontSize;
         
-        document.getElementById('categoryFontSize').value = categoryFontSize;
-        document.getElementById('categoryFontSizeInput').value = categoryFontSize;
-        document.getElementById('categoryFontSizeValue').textContent = categoryFontSize;
+        document.getElementById('bookmarkFontSize').value = this.settings.bookmarkFontSize;
+        document.getElementById('bookmarkFontSizeInput').value = this.settings.bookmarkFontSize;
+        document.getElementById('bookmarkFontSizeValue').textContent = this.settings.bookmarkFontSize;
         
-        document.getElementById('bookmarkFontSize').value = bookmarkFontSize;
-        document.getElementById('bookmarkFontSizeInput').value = bookmarkFontSize;
-        document.getElementById('bookmarkFontSizeValue').textContent = bookmarkFontSize;
+        // Background
+        document.getElementById('bgImageUrl').value = this.settings.bgImage || '';
+        document.getElementById('bgCustomColor').value = this.settings.bgCustomColor || '';
         
-        bgImageUrl.value = this.settings.bgImage || '';
-        bgCustomColor.value = this.settings.customBg || '';
-        
-        // Set color picker if it's a hex color
-        if (this.settings.customBg && this.settings.customBg.startsWith('#')) {
-            bgColorPicker.value = this.settings.customBg;
+        if (this.settings.bgCustomColor && this.settings.bgCustomColor.startsWith('#')) {
+            document.getElementById('bgColorPicker').value = this.settings.bgCustomColor;
         }
         
-        // Select current preset
+        // Background preset
         document.querySelectorAll('.bg-preset').forEach(p => p.classList.remove('selected'));
         if (this.settings.bgPreset) {
             const preset = document.querySelector(`.bg-preset[data-bg="${this.settings.bgPreset}"]`);
             if (preset) preset.classList.add('selected');
-        } else if (!this.settings.bgImage && !this.settings.customBg) {
-            document.querySelector('.bg-preset[data-bg=""]').classList.add('selected');
+        } else {
+            const nonePreset = document.querySelector('.bg-preset[data-bg=""]');
+            if (nonePreset) nonePreset.classList.add('selected');
         }
         
-        modal.classList.add('active');
+        // GitHub Sync Status
+        this.updateGitHubSyncUI();
+        
+        document.getElementById('settingsModal').classList.add('active');
     }
 
     closeSettingsModal() {
@@ -780,204 +825,578 @@ class BookmarkApp {
     }
 
     saveSettingsData() {
-        const bgImageUrl = document.getElementById('bgImageUrl').value.trim();
-        const bgCustomColor = document.getElementById('bgCustomColor').value.trim();
+        // Widget visibility
+        this.settings.showWeatherWidget = document.getElementById('showWeatherWidget').checked;
+        this.settings.showClockWidget = document.getElementById('showClockWidget').checked;
+        this.settings.showCurrencyWidget = document.getElementById('showCurrencyWidget').checked;
+        this.settings.showStockWidget = document.getElementById('showStockWidget').checked;
+        this.settings.showSearchWidget = document.getElementById('showSearchWidget').checked;
+        this.settings.showFooterWidget = document.getElementById('showFooterWidget').checked;
+        
+        // Background
+        this.settings.bgImage = document.getElementById('bgImageUrl').value.trim();
+        this.settings.bgCustomColor = document.getElementById('bgCustomColor').value.trim();
+        
         const selectedPreset = document.querySelector('.bg-preset.selected');
-        const categoryFontSize = parseInt(document.getElementById('categoryFontSize').value);
-        const bookmarkFontSize = parseInt(document.getElementById('bookmarkFontSize').value);
-        const pageTitle = document.getElementById('pageTitle').value.trim();
-        const pageTitleIcon = document.getElementById('pageTitleIcon').value.trim();
+        this.settings.bgPreset = selectedPreset ? selectedPreset.dataset.bg : '';
         
-        // Save page title
-        this.settings.pageTitle = pageTitle || 'Bryan\'s Start Page';
-        this.settings.pageTitleIcon = pageTitleIcon || 'fa-bookmark';
+        // Page title
+        this.settings.pageTitle = document.getElementById('pageTitle').value.trim();
+        this.settings.pageTitleIcon = document.getElementById('pageTitleIcon').value.trim();
         
-        // Save font sizes
-        this.settings.categoryFontSize = categoryFontSize;
-        this.settings.bookmarkFontSize = bookmarkFontSize;
-        
-        if (bgImageUrl) {
-            this.settings.bgImage = bgImageUrl;
-            this.settings.bgPreset = '';
-            this.settings.customBg = '';
-        } else if (bgCustomColor) {
-            this.settings.customBg = bgCustomColor;
-            this.settings.bgImage = '';
-            this.settings.bgPreset = '';
-        } else if (selectedPreset) {
-            this.settings.bgPreset = selectedPreset.dataset.bg;
-            this.settings.bgImage = '';
-            this.settings.customBg = '';
-        }
+        // Font sizes
+        this.settings.categoryFontSize = parseInt(document.getElementById('categoryFontSizeInput').value);
+        this.settings.bookmarkFontSize = parseInt(document.getElementById('bookmarkFontSizeInput').value);
         
         this.saveSettings();
         this.applyBackgroundSettings();
         this.applyFontSizes();
         this.applyPageTitle();
+        applyWidgetVisibility(this);
         this.closeSettingsModal();
     }
 
-    // ========================================
-    // Search
-    // ========================================
     handleSearch(query) {
-        const lowerQuery = query.toLowerCase().trim();
+        query = query.toLowerCase().trim();
         
-        if (!lowerQuery) {
+        if (!query) {
             this.render();
             return;
         }
-
+        
         const wrapper = document.getElementById('categoriesWrapper');
         wrapper.innerHTML = '';
-
+        
         this.categories.forEach(category => {
-            const matchingBookmarks = category.bookmarks.filter(bookmark =>
-                bookmark.title.toLowerCase().includes(lowerQuery) ||
-                bookmark.description.toLowerCase().includes(lowerQuery) ||
-                bookmark.url.toLowerCase().includes(lowerQuery)
+            const matchingBookmarks = category.bookmarks.filter(bookmark => 
+                bookmark.title.toLowerCase().includes(query) ||
+                bookmark.description.toLowerCase().includes(query) ||
+                bookmark.url.toLowerCase().includes(query)
             );
-
+            
             if (matchingBookmarks.length > 0) {
-                const filteredCategory = {
-                    ...category,
-                    bookmarks: matchingBookmarks,
-                    collapsed: false
-                };
-                const categoryCard = this.createCategoryCard(filteredCategory);
-                wrapper.appendChild(categoryCard);
+                const card = document.createElement('div');
+                card.className = 'category-card';
+                const iconStyle = category.color ? `style="background: ${category.color}"` : '';
+                
+                card.innerHTML = `
+                    <div class="category-header">
+                        <div class="category-title">
+                            <div class="category-icon" ${iconStyle}>
+                                <i class="fas ${category.icon || 'fa-folder'}"></i>
+                            </div>
+                            <h2>${category.name}</h2>
+                        </div>
+                    </div>
+                    <div class="bookmarks-grid">
+                        ${matchingBookmarks.map(bookmark => this.createBookmarkHTML(bookmark, category.id)).join('')}
+                    </div>
+                `;
+                
+                wrapper.appendChild(card);
             }
         });
-
-        if (wrapper.children.length === 0) {
-            wrapper.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-tertiary);">검색 결과가 없습니다.</div>';
-        }
     }
 
-    // ========================================
-    // Drag and Drop
-    // ========================================
     setupDragAndDrop() {
         // Category drag and drop
         const categoryCards = document.querySelectorAll('.category-card');
-        categoryCards.forEach((card, index) => {
-            card.addEventListener('dragstart', (e) => this.handleCategoryDragStart(e, index));
-            card.addEventListener('dragover', (e) => this.handleDragOver(e));
-            card.addEventListener('drop', (e) => this.handleCategoryDrop(e, index));
-            card.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        
+        categoryCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('categoryId', card.dataset.categoryId);
+                card.classList.add('dragging');
+            });
+            
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
+            
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('categoryId');
+                const targetId = card.dataset.categoryId;
+                
+                if (draggedId !== targetId) {
+                    const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
+                    const targetIndex = this.categories.findIndex(c => c.id === targetId);
+                    
+                    const [removed] = this.categories.splice(draggedIndex, 1);
+                    this.categories.splice(targetIndex, 0, removed);
+                    
+                    this.saveData();
+                    this.render();
+                }
+            });
         });
-
+        
         // Bookmark drag and drop
         const bookmarkCards = document.querySelectorAll('.bookmark-card');
+        
         bookmarkCards.forEach(card => {
-            card.addEventListener('dragstart', (e) => this.handleBookmarkDragStart(e));
-            card.addEventListener('dragover', (e) => this.handleDragOver(e));
-            card.addEventListener('drop', (e) => this.handleBookmarkDrop(e));
-            card.addEventListener('dragend', (e) => this.handleDragEnd(e));
+            card.addEventListener('dragstart', (e) => {
+                e.stopPropagation();
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('bookmarkId', card.dataset.bookmarkId);
+                e.dataTransfer.setData('sourceCategoryId', card.dataset.categoryId);
+                card.classList.add('dragging');
+            });
+            
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
+            
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const bookmarkId = e.dataTransfer.getData('bookmarkId');
+                const sourceCategoryId = e.dataTransfer.getData('sourceCategoryId');
+                const targetCategoryId = card.dataset.categoryId;
+                const targetBookmarkId = card.dataset.bookmarkId;
+                
+                if (sourceCategoryId === targetCategoryId && bookmarkId !== targetBookmarkId) {
+                    const category = this.categories.find(c => c.id === sourceCategoryId);
+                    const draggedIndex = category.bookmarks.findIndex(b => b.id === bookmarkId);
+                    const targetIndex = category.bookmarks.findIndex(b => b.id === targetBookmarkId);
+                    
+                    const [removed] = category.bookmarks.splice(draggedIndex, 1);
+                    category.bookmarks.splice(targetIndex, 0, removed);
+                    
+                    this.saveData();
+                    this.render();
+                }
+            });
         });
+    }
 
-        // Bookmarks grid drop zones (for empty categories)
-        const bookmarkGrids = document.querySelectorAll('.bookmarks-grid');
-        bookmarkGrids.forEach(grid => {
-            grid.addEventListener('dragover', (e) => this.handleDragOver(e));
-            grid.addEventListener('drop', (e) => this.handleGridDrop(e));
+    backupData() {
+        const backupData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            categories: this.categories,
+            settings: this.settings,
+            footerBookmarks: this.footerBookmarks
+        };
+        
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `bryan-startpage-backup-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        
+        alert('백업 파일이 다운로드되었습니다!');
+    }
+
+    restoreData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const backupData = JSON.parse(e.target.result);
+                
+                if (confirm('기존 데이터를 모두 덮어쓰시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+                    this.categories = backupData.categories || [];
+                    this.settings = { ...this.settings, ...backupData.settings };
+                    this.footerBookmarks = backupData.footerBookmarks || [];
+                    
+                    this.saveData();
+                    this.saveSettings();
+                    saveFooterBookmarks(this);
+                    
+                    alert('백업이 복원되었습니다! 페이지를 새로고침합니다.');
+                    location.reload();
+                }
+            } catch (error) {
+                alert('백업 파일을 읽는 중 오류가 발생했습니다.\n\n올바른 백업 파일인지 확인해주세요.');
+                console.error('Restore error:', error);
+            }
+        };
+        reader.readAsText(file);
+        
+        event.target.value = '';
+    }
+
+    // Widget Settings Methods
+    openWeatherSettingsModal() {
+        document.getElementById('weatherCity').value = this.settings.weatherCity || 'Ulsan';
+        document.getElementById('weatherApiKey').value = this.settings.weatherApiKey || '';
+        document.getElementById('weatherUnit').value = this.settings.weatherUnit || 'metric';
+        document.getElementById('weatherWidgetSize').value = (this.settings.weatherWidgetSize || 1) * 100;
+        document.getElementById('weatherWidgetSizeValue').textContent = Math.round((this.settings.weatherWidgetSize || 1) * 100);
+        
+        const sizeInput = document.getElementById('weatherWidgetSize');
+        const sizeValue = document.getElementById('weatherWidgetSizeValue');
+        const newInput = sizeInput.cloneNode(true);
+        sizeInput.parentNode.replaceChild(newInput, sizeInput);
+        newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
+        
+        document.getElementById('weatherSettingsModal').classList.add('active');
+    }
+
+    closeWeatherSettingsModal() {
+        document.getElementById('weatherSettingsModal').classList.remove('active');
+    }
+
+    saveWeatherSettings() {
+        this.settings.weatherCity = document.getElementById('weatherCity').value.trim() || 'Ulsan';
+        this.settings.weatherApiKey = document.getElementById('weatherApiKey').value.trim();
+        this.settings.weatherUnit = document.getElementById('weatherUnit').value;
+        this.settings.weatherWidgetSize = parseInt(document.getElementById('weatherWidgetSize').value) / 100;
+        
+        this.saveSettings();
+        applyWidgetSizes(this);
+        this.closeWeatherSettingsModal();
+        loadWeatherData(this);
+    }
+
+    openClockSettingsModal() {
+        document.getElementById('clockTimezone').value = this.settings.clockTimezone || 'Asia/Seoul';
+        document.getElementById('clockFormat').value = this.settings.clockFormat || 24;
+        document.getElementById('clockShowSeconds').checked = this.settings.clockShowSeconds || false;
+        document.getElementById('clockDateFormat').value = this.settings.clockDateFormat || 'ko';
+        document.getElementById('clockWidgetSize').value = (this.settings.clockWidgetSize || 1) * 100;
+        document.getElementById('clockWidgetSizeValue').textContent = Math.round((this.settings.clockWidgetSize || 1) * 100);
+        
+        const sizeInput = document.getElementById('clockWidgetSize');
+        const sizeValue = document.getElementById('clockWidgetSizeValue');
+        const newInput = sizeInput.cloneNode(true);
+        sizeInput.parentNode.replaceChild(newInput, sizeInput);
+        newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
+        
+        document.getElementById('clockSettingsModal').classList.add('active');
+    }
+
+    closeClockSettingsModal() {
+        document.getElementById('clockSettingsModal').classList.remove('active');
+    }
+
+    saveClockSettings() {
+        this.settings.clockTimezone = document.getElementById('clockTimezone').value;
+        this.settings.clockFormat = parseInt(document.getElementById('clockFormat').value);
+        this.settings.clockShowSeconds = document.getElementById('clockShowSeconds').checked;
+        this.settings.clockDateFormat = document.getElementById('clockDateFormat').value;
+        this.settings.clockWidgetSize = parseInt(document.getElementById('clockWidgetSize').value) / 100;
+        
+        this.saveSettings();
+        applyWidgetSizes(this);
+        this.closeClockSettingsModal();
+        updateClock(this);
+    }
+
+    openSearchSettingsModal() {
+        const listContainer = document.getElementById('searchEngineList');
+        listContainer.innerHTML = '';
+        
+        Object.entries(this.settings.searchEngines).forEach(([key, engineData]) => {
+            const url = engineData.url || engineData;
+            const icon = engineData.icon || '';
+            
+            const item = document.createElement('div');
+            item.className = 'search-engine-item';
+            item.innerHTML = `
+                <input type="text" value="${key}" placeholder="엔진 이름 (예: google)" data-key="${key}">
+                <input type="text" value="${url}" placeholder="검색 URL (예: https://www.google.com/search?q=)" data-url="${key}">
+                <input type="text" value="${icon}" placeholder="파비콘 URL (선택)" data-icon="${key}">
+                <button class="remove-search-engine" data-remove="${key}">삭제</button>
+            `;
+            listContainer.appendChild(item);
+            
+            item.querySelector('.remove-search-engine').addEventListener('click', () => {
+                this.removeSearchEngine(key);
+            });
+        });
+        
+        document.getElementById('searchWidgetSize').value = (this.settings.searchWidgetSize || 1) * 100;
+        document.getElementById('searchWidgetSizeValue').textContent = Math.round((this.settings.searchWidgetSize || 1) * 100);
+        
+        const sizeInput = document.getElementById('searchWidgetSize');
+        const sizeValue = document.getElementById('searchWidgetSizeValue');
+        const newInput = sizeInput.cloneNode(true);
+        sizeInput.parentNode.replaceChild(newInput, sizeInput);
+        newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
+        
+        document.getElementById('searchSettingsModal').classList.add('active');
+    }
+
+    closeSearchSettingsModal() {
+        document.getElementById('searchSettingsModal').classList.remove('active');
+    }
+
+    saveSearchSettings() {
+        const newEngines = {};
+        document.querySelectorAll('.search-engine-item').forEach(item => {
+            const keyInput = item.querySelector('[data-key]');
+            const urlInput = item.querySelector('[data-url]');
+            const iconInput = item.querySelector('[data-icon]');
+            const key = keyInput.value.trim();
+            const url = urlInput.value.trim();
+            const icon = iconInput.value.trim();
+            if (key && url) {
+                newEngines[key] = { url, icon };
+            }
+        });
+        
+        this.settings.searchEngines = newEngines;
+        this.settings.searchWidgetSize = parseInt(document.getElementById('searchWidgetSize').value) / 100;
+        
+        this.saveSettings();
+        applyWidgetSizes(this);
+        this.closeSearchSettingsModal();
+        updateSearchEngineSelect(this);
+    }
+
+    addSearchEngine() {
+        const listContainer = document.getElementById('searchEngineList');
+        const item = document.createElement('div');
+        item.className = 'search-engine-item';
+        item.innerHTML = `
+            <input type="text" value="" placeholder="엔진 이름 (예: google)" data-key="new">
+            <input type="text" value="" placeholder="검색 URL (예: https://www.google.com/search?q=)" data-url="new">
+            <input type="text" value="" placeholder="파비콘 URL (선택)" data-icon="new">
+            <button class="remove-search-engine">삭제</button>
+        `;
+        listContainer.appendChild(item);
+        
+        item.querySelector('.remove-search-engine').addEventListener('click', () => {
+            item.remove();
         });
     }
 
-    handleCategoryDragStart(e, index) {
-        e.stopPropagation();
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('type', 'category');
-        e.dataTransfer.setData('index', index);
-        e.currentTarget.classList.add('dragging');
+    removeSearchEngine(key) {
+        delete this.settings.searchEngines[key];
+        this.openSearchSettingsModal();
     }
 
-    handleBookmarkDragStart(e) {
-        e.stopPropagation();
-        const bookmarkId = e.currentTarget.getAttribute('data-bookmark-id');
-        const categoryId = e.currentTarget.getAttribute('data-category-id');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('type', 'bookmark');
-        e.dataTransfer.setData('bookmarkId', bookmarkId);
-        e.dataTransfer.setData('categoryId', categoryId);
-        e.currentTarget.classList.add('dragging');
+    openCurrencySettingsModal() {
+        document.getElementById('currencyUSD').checked = this.settings.currencyUSD !== false;
+        document.getElementById('currencyEUR').checked = this.settings.currencyEUR || false;
+        document.getElementById('currencyJPY').checked = this.settings.currencyJPY !== false;
+        document.getElementById('currencyCNY').checked = this.settings.currencyCNY || false;
+        document.getElementById('currencyWidgetSize').value = (this.settings.currencyWidgetSize || 1) * 100;
+        document.getElementById('currencyWidgetSizeValue').textContent = Math.round((this.settings.currencyWidgetSize || 1) * 100);
+        
+        const sizeInput = document.getElementById('currencyWidgetSize');
+        const sizeValue = document.getElementById('currencyWidgetSizeValue');
+        const newInput = sizeInput.cloneNode(true);
+        sizeInput.parentNode.replaceChild(newInput, sizeInput);
+        newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
+        
+        document.getElementById('currencySettingsModal').classList.add('active');
     }
 
-    handleDragOver(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+    closeCurrencySettingsModal() {
+        document.getElementById('currencySettingsModal').classList.remove('active');
     }
 
-    handleCategoryDrop(e, targetIndex) {
-        e.preventDefault();
-        e.stopPropagation();
+    saveCurrencySettings() {
+        this.settings.currencyUSD = document.getElementById('currencyUSD').checked;
+        this.settings.currencyEUR = document.getElementById('currencyEUR').checked;
+        this.settings.currencyJPY = document.getElementById('currencyJPY').checked;
+        this.settings.currencyCNY = document.getElementById('currencyCNY').checked;
+        this.settings.currencyWidgetSize = parseInt(document.getElementById('currencyWidgetSize').value) / 100;
         
-        const type = e.dataTransfer.getData('type');
-        if (type !== 'category') return;
-
-        const sourceIndex = parseInt(e.dataTransfer.getData('index'));
-        if (sourceIndex === targetIndex) return;
-
-        const [movedCategory] = this.categories.splice(sourceIndex, 1);
-        this.categories.splice(targetIndex, 0, movedCategory);
-        
-        this.saveData();
-        this.render();
+        this.saveSettings();
+        applyWidgetSizes(this);
+        this.closeCurrencySettingsModal();
+        loadCurrencyData(this);
     }
 
-    handleBookmarkDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    openStockSettingsModal() {
+        document.getElementById('stockKOSPI').checked = this.settings.stockKOSPI !== false;
+        document.getElementById('stockKOSDAQ').checked = this.settings.stockKOSDAQ || false;
+        document.getElementById('stockSP500').checked = this.settings.stockSP500 || false;
+        document.getElementById('stockNASDAQ').checked = this.settings.stockNASDAQ || false;
         
-        const type = e.dataTransfer.getData('type');
-        if (type !== 'bookmark') return;
-
-        const sourceBookmarkId = e.dataTransfer.getData('bookmarkId');
-        const sourceCategoryId = e.dataTransfer.getData('categoryId');
-        const targetBookmarkId = e.currentTarget.getAttribute('data-bookmark-id');
-        const targetCategoryId = e.currentTarget.getAttribute('data-category-id');
-
-        const sourceCategory = this.categories.find(c => c.id === sourceCategoryId);
-        const targetCategory = this.categories.find(c => c.id === targetCategoryId);
+        const listContainer = document.getElementById('stockSymbolList');
+        listContainer.innerHTML = '';
+        (this.settings.stockSymbols || []).forEach((symbol) => {
+            this.renderStockSymbolItem(listContainer, symbol);
+        });
         
-        const sourceIndex = sourceCategory.bookmarks.findIndex(b => b.id === sourceBookmarkId);
-        const targetIndex = targetCategory.bookmarks.findIndex(b => b.id === targetBookmarkId);
-
-        if (sourceCategoryId === targetCategoryId && sourceIndex === targetIndex) return;
-
-        const [movedBookmark] = sourceCategory.bookmarks.splice(sourceIndex, 1);
-        targetCategory.bookmarks.splice(targetIndex, 0, movedBookmark);
+        document.getElementById('stockWidgetSize').value = (this.settings.stockWidgetSize || 1) * 100;
+        document.getElementById('stockWidgetSizeValue').textContent = Math.round((this.settings.stockWidgetSize || 1) * 100);
         
-        this.saveData();
-        this.render();
+        const sizeInput = document.getElementById('stockWidgetSize');
+        const sizeValue = document.getElementById('stockWidgetSizeValue');
+        const newInput = sizeInput.cloneNode(true);
+        sizeInput.parentNode.replaceChild(newInput, sizeInput);
+        newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
+        
+        document.getElementById('stockSettingsModal').classList.add('active');
     }
 
-    handleDragEnd(e) {
-        e.currentTarget.classList.remove('dragging');
+    renderStockSymbolItem(container, symbol) {
+        const item = document.createElement('div');
+        item.className = 'stock-symbol-item';
+        item.innerHTML = `
+            <input type="text" value="${symbol.code || ''}" placeholder="종목 코드 (예: 005930)" data-code>
+            <input type="text" value="${symbol.name || ''}" placeholder="종목 이름 (예: 삼성전자)" data-name>
+            <button class="remove-stock-symbol">삭제</button>
+        `;
+        container.appendChild(item);
+        
+        item.querySelector('.remove-stock-symbol').addEventListener('click', () => {
+            item.remove();
+        });
     }
 
-    handleGridDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const type = e.dataTransfer.getData('type');
-        if (type !== 'bookmark') return;
+    addStockSymbol() {
+        const listContainer = document.getElementById('stockSymbolList');
+        if (listContainer.children.length >= 4) {
+            alert('최대 4개 종목만 추가할 수 있습니다.');
+            return;
+        }
+        this.renderStockSymbolItem(listContainer, { code: '', name: '' });
+    }
 
-        const sourceBookmarkId = e.dataTransfer.getData('bookmarkId');
-        const sourceCategoryId = e.dataTransfer.getData('categoryId');
-        const targetCategoryId = e.currentTarget.getAttribute('data-category-id');
+    closeStockSettingsModal() {
+        document.getElementById('stockSettingsModal').classList.remove('active');
+    }
 
-        if (!targetCategoryId || sourceCategoryId === targetCategoryId) return;
-
-        const sourceCategory = this.categories.find(c => c.id === sourceCategoryId);
-        const targetCategory = this.categories.find(c => c.id === targetCategoryId);
+    saveStockSettings() {
+        this.settings.stockKOSPI = document.getElementById('stockKOSPI').checked;
+        this.settings.stockKOSDAQ = document.getElementById('stockKOSDAQ').checked;
+        this.settings.stockSP500 = document.getElementById('stockSP500').checked;
+        this.settings.stockNASDAQ = document.getElementById('stockNASDAQ').checked;
         
-        const sourceIndex = sourceCategory.bookmarks.findIndex(b => b.id === sourceBookmarkId);
-        const [movedBookmark] = sourceCategory.bookmarks.splice(sourceIndex, 1);
-        targetCategory.bookmarks.push(movedBookmark);
+        const symbols = [];
+        document.querySelectorAll('.stock-symbol-item').forEach(item => {
+            const code = item.querySelector('[data-code]').value.trim();
+            const name = item.querySelector('[data-name]').value.trim();
+            if (code) {
+                symbols.push({ code, name });
+            }
+        });
+        this.settings.stockSymbols = symbols;
         
-        this.saveData();
-        this.render();
+        this.settings.stockWidgetSize = parseInt(document.getElementById('stockWidgetSize').value) / 100;
+        
+        this.saveSettings();
+        applyWidgetSizes(this);
+        this.closeStockSettingsModal();
+        loadStockData(this);
+    }
+    
+    // ========================================
+    // GitHub Sync Methods
+    // ========================================
+    
+    updateGitHubSyncUI() {
+        const isConnected = this.githubSync && this.githubSync.isConfigured();
+        const notConnectedDiv = document.getElementById('githubNotConnected');
+        const connectedDiv = document.getElementById('githubConnected');
+        
+        if (isConnected) {
+            notConnectedDiv.style.display = 'none';
+            connectedDiv.style.display = 'block';
+            
+            const gistId = this.githubSync.getGistId();
+            const gistIdDisplay = document.getElementById('gistIdDisplay');
+            if (gistIdDisplay) {
+                gistIdDisplay.textContent = gistId.substring(0, 8) + '...';
+                gistIdDisplay.title = gistId;
+            }
+        } else {
+            notConnectedDiv.style.display = 'block';
+            connectedDiv.style.display = 'none';
+            document.getElementById('githubToken').value = '';
+        }
+    }
+    
+    async connectGitHub() {
+        const tokenInput = document.getElementById('githubToken');
+        const token = tokenInput.value.trim();
+        
+        if (!token) {
+            alert('GitHub Personal Access Token을 입력해주세요.');
+            return;
+        }
+        
+        if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+            alert('올바른 GitHub Token 형식이 아닙니다.\nToken은 ghp_ 또는 github_pat_로 시작해야 합니다.');
+            return;
+        }
+        
+        // Save token
+        this.githubSync.setToken(token);
+        
+        // Verify token
+        const isValid = await this.githubSync.verifyToken();
+        
+        if (!isValid) {
+            alert('유효하지 않은 Token입니다.\n권한을 확인해주세요. (필요 권한: gist)');
+            this.githubSync.setToken('');
+            return;
+        }
+        
+        // Migrate data to Gist
+        await this.githubSync.migrateFromLocalStorage();
+        
+        // Update UI
+        this.updateGitHubSyncUI();
+        
+        // Start auto-sync
+        this.githubSync.startAutoSync(5);
+        
+        alert('✅ GitHub 연결 완료!\n이제 모든 변경사항이 자동으로 동기화됩니다.');
+    }
+    
+    async disconnectGitHub() {
+        const confirm = window.confirm(
+            'GitHub 연결을 해제하시겠습니까?\n\n' +
+            '로컬 데이터는 유지되지만, 자동 동기화가 중단됩니다.\n' +
+            '다시 연결하려면 같은 Token을 사용하세요.'
+        );
+        
+        if (!confirm) return;
+        
+        this.githubSync.disconnect();
+        this.updateGitHubSyncUI();
+        
+        alert('GitHub 연결이 해제되었습니다.');
+    }
+    
+    async syncNow() {
+        if (!this.githubSync || !this.githubSync.isConfigured()) {
+            alert('GitHub가 연결되지 않았습니다.');
+            return;
+        }
+        
+        await this.githubSync.pushData();
+    }
+    
+    async pullFromCloud() {
+        if (!this.githubSync || !this.githubSync.isConfigured()) {
+            alert('GitHub가 연결되지 않았습니다.');
+            return;
+        }
+        
+        const confirm = window.confirm(
+            '클라우드 데이터로 덮어쓰시겠습니까?\n\n' +
+            '현재 로컬 변경사항이 있다면 클라우드 데이터로 대체됩니다.\n' +
+            '먼저 백업을 권장합니다.'
+        );
+        
+        if (!confirm) return;
+        
+        await this.githubSync.pullData();
     }
 }
 
