@@ -1310,13 +1310,15 @@ body {
     background-color: rgba(var(--bg-secondary-rgb), 0.95);
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--border-color);
-    padding: 12px 24px;
+    padding: calc(12px * var(--footer-widget-scale)) calc(24px * var(--footer-widget-scale));
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 12px;
+    gap: calc(12px * var(--footer-widget-scale));
     z-index: 999;
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    transform-origin: bottom center;
+    transition: all 0.3s ease;
 }
 
 /* RGB 변수 추가 (다크모드 대응) */
@@ -1330,19 +1332,17 @@ body {
 
 .footer-bookmarks {
     display: flex;
-    gap: 8px;
+    gap: calc(8px * var(--footer-widget-scale));
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
-    transform: scale(var(--footer-widget-scale));
-    transform-origin: center bottom;
 }
 
 .footer-bookmark-item {
     position: relative;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: calc(48px * var(--footer-widget-scale));
+    height: calc(48px * var(--footer-widget-scale));
+    border-radius: calc(12px * var(--footer-widget-scale));
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     display: flex;
@@ -1360,22 +1360,22 @@ body {
 }
 
 .footer-bookmark-item img {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: calc(28px * var(--footer-widget-scale));
+    height: calc(28px * var(--footer-widget-scale));
+    border-radius: calc(6px * var(--footer-widget-scale));
 }
 
 .footer-bookmark-delete {
     position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 20px;
-    height: 20px;
+    top: calc(-6px * var(--footer-widget-scale));
+    right: calc(-6px * var(--footer-widget-scale));
+    width: calc(20px * var(--footer-widget-scale));
+    height: calc(20px * var(--footer-widget-scale));
     border-radius: 50%;
     background-color: var(--danger);
     border: 2px solid var(--bg-primary);
     color: white;
-    font-size: 10px;
+    font-size: calc(10px * var(--footer-widget-scale));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1394,9 +1394,9 @@ body {
 }
 
 .footer-settings-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: calc(40px * var(--footer-widget-scale));
+    height: calc(40px * var(--footer-widget-scale));
+    border-radius: calc(10px * var(--footer-widget-scale));
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
@@ -1405,7 +1405,7 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    font-size: 16px;
+    font-size: calc(16px * var(--footer-widget-scale));
 }
 
 .footer-settings-btn:hover {
@@ -1416,9 +1416,9 @@ body {
 }
 
 .footer-add-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: calc(48px * var(--footer-widget-scale));
+    height: calc(48px * var(--footer-widget-scale));
+    border-radius: calc(12px * var(--footer-widget-scale));
     background-color: var(--primary-color);
     border: none;
     color: white;
@@ -1435,7 +1435,7 @@ body {
 }
 
 .footer-add-btn i {
-    font-size: 18px;
+    font-size: calc(18px * var(--footer-widget-scale));
 }
 
 /* Main Content Padding (푸터 공간 확보) */
