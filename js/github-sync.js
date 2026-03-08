@@ -270,7 +270,14 @@ class GitHubSync {
 
             // Re-render everything
             this.app.render();
-            this.app.applySettings();
+            
+            // Apply settings
+            this.app.applyBackgroundSettings();
+            this.app.applyFontSizes();
+            this.app.applyPageTitle();
+            applyWidgetSizes(this.app);
+            applyWidgetVisibility(this.app);
+            
             renderFooterBookmarks(this.app);
 
             this.updateSyncStatus('success', 'Loaded from cloud');
