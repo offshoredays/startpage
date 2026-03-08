@@ -60,16 +60,25 @@ function setupModalCloseEvents(app) {
         openFooterSettingsModal(app);
     });
     
-    // Close modals on outside click
+    // Close modals on outside click (prevent closing when text dragging)
     document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        let mouseDownOnBackdrop = false;
+        
+        modal.addEventListener('mousedown', (e) => {
+            // Check if mousedown is directly on modal backdrop
+            mouseDownOnBackdrop = (e.target === modal);
+        });
+        
+        modal.addEventListener('mouseup', (e) => {
+            // Only close if mousedown AND mouseup both happened on backdrop
+            if (e.target === modal && mouseDownOnBackdrop) {
                 modal.classList.remove('active');
                 if (modal.id === 'clockModal' && app.clockDetailInterval) {
                     clearInterval(app.clockDetailInterval);
                     app.clockDetailInterval = null;
                 }
             }
+            mouseDownOnBackdrop = false;
         });
     });
 }

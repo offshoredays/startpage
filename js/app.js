@@ -65,15 +65,10 @@ class BookmarkApp {
         this.footerBookmarks = [];
         
         // Initialize GitHub Sync
-        this.githubSync = null;
-        
-        this.init();
+        this.githubSync = new GitHubSync(this);
     }
 
     async init() {
-        // Initialize GitHub Sync first
-        this.githubSync = new GitHubSync(this);
-        
         // Try to load from cloud first, fallback to localStorage
         if (this.githubSync.isConfigured()) {
             await this.githubSync.initialSync();
@@ -344,12 +339,21 @@ class BookmarkApp {
         document.getElementById('syncNowBtn')?.addEventListener('click', () => this.syncNow());
         document.getElementById('pullDataBtn')?.addEventListener('click', () => this.pullFromCloud());
 
-        // Close modals on outside click
+        // Close modals on outside click (prevent closing when text dragging)
         document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
+            let mouseDownOnBackdrop = false;
+            
+            modal.addEventListener('mousedown', (e) => {
+                // Check if mousedown is directly on modal backdrop
+                mouseDownOnBackdrop = (e.target === modal);
+            });
+            
+            modal.addEventListener('mouseup', (e) => {
+                // Only close if mousedown AND mouseup both happened on backdrop
+                if (e.target === modal && mouseDownOnBackdrop) {
                     modal.classList.remove('active');
                 }
+                mouseDownOnBackdrop = false;
             });
         });
 
@@ -528,7 +532,7 @@ class BookmarkApp {
         const faviconUrl = this.getFaviconUrl(bookmark.url);
         
         return `
-            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}">
+            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}" onclick="app.openBookmark('${bookmark.url.replace(/'/g, "\\'")}')">
                 <div class="bookmark-content">
                     <div class="bookmark-favicon">
                         <img src="${faviconUrl}" alt="${bookmark.title}" 
@@ -739,6 +743,12 @@ class BookmarkApp {
 
     editBookmark(categoryId, bookmarkId) {
         this.openBookmarkModal(categoryId, bookmarkId);
+    }
+    
+    openBookmark(url) {
+        if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
     }
 
     deleteBookmark(categoryId, bookmarkId) {
@@ -1303,20 +1313,23 @@ class BookmarkApp {
         const notConnectedDiv = document.getElementById('githubNotConnected');
         const connectedDiv = document.getElementById('githubConnected');
         
+        if (!notConnectedDiv || !connectedDiv) return;
+        
         if (isConnected) {
             notConnectedDiv.style.display = 'none';
             connectedDiv.style.display = 'block';
             
             const gistId = this.githubSync.getGistId();
             const gistIdDisplay = document.getElementById('gistIdDisplay');
-            if (gistIdDisplay) {
+            if (gistIdDisplay && gistId) {
                 gistIdDisplay.textContent = gistId.substring(0, 8) + '...';
                 gistIdDisplay.title = gistId;
             }
         } else {
             notConnectedDiv.style.display = 'block';
             connectedDiv.style.display = 'none';
-            document.getElementById('githubToken').value = '';
+            const tokenInput = document.getElementById('githubToken');
+            if (tokenInput) tokenInput.value = '';
         }
     }
     
@@ -1404,6 +1417,7 @@ class BookmarkApp {
 // Initialize App
 // ========================================
 let app;
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     app = new BookmarkApp();
+    await app.init();
 });

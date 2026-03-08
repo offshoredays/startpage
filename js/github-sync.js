@@ -61,8 +61,14 @@ class GitHubSync {
         const response = await fetch(`${this.apiBase}${endpoint}`, options);
         
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || `GitHub API error: ${response.status}`);
+            let errorMessage = `GitHub API error: ${response.status}`;
+            try {
+                const error = await response.json();
+                errorMessage = error.message || errorMessage;
+            } catch (e) {
+                // Response body is not JSON
+            }
+            throw new Error(errorMessage);
         }
 
         return response.json();
@@ -146,7 +152,7 @@ class GitHubSync {
 
     async pushData() {
         if (this.isSyncing) {
-            console.log('Sync already in progress');
+            console.log('⏸️ Sync already in progress, skipping...');
             return;
         }
 
@@ -157,14 +163,23 @@ class GitHubSync {
             const data = this.prepareDataForSync();
             const gistId = this.getGistId();
 
+            console.log('📦 Data to sync:', {
+                categories: data.categories?.length || 0,
+                settings: Object.keys(data.settings || {}).length,
+                footerBookmarks: data.footerBookmarks?.length || 0
+            });
+
             if (gistId) {
+                console.log('📤 Updating existing Gist:', gistId.substring(0, 8) + '...');
                 await this.updateGist(data);
             } else {
-                await this.createGist(data);
+                console.log('📤 Creating new Gist...');
+                const gist = await this.createGist(data);
+                console.log('✅ New Gist created:', gist.id);
             }
 
             this.updateSyncStatus('success', 'Synced successfully');
-            console.log('Data pushed to GitHub Gist successfully');
+            console.log('✅ Data pushed to GitHub Gist successfully');
             
             // Auto-hide success message after 3s
             setTimeout(() => {
@@ -172,8 +187,24 @@ class GitHubSync {
             }, 3000);
 
         } catch (error) {
-            console.error('Push error:', error);
-            this.updateSyncStatus('error', `Sync failed: ${error.message}`);
+            console.error('❌ Push error:', error);
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack
+            });
+            
+            let errorMsg = 'Sync failed';
+            if (error.message.includes('401') || error.message.includes('token')) {
+                errorMsg = 'Invalid token. Please reconnect.';
+            } else if (error.message.includes('403')) {
+                errorMsg = 'Permission denied. Check token scope.';
+            } else if (error.message.includes('Network')) {
+                errorMsg = 'Network error. Check connection.';
+            } else {
+                errorMsg = `Sync failed: ${error.message}`;
+            }
+            
+            this.updateSyncStatus('error', errorMsg);
         } finally {
             this.isSyncing = false;
         }
@@ -191,6 +222,11 @@ class GitHubSync {
 
             const data = await this.getGist();
 
+            // Validate data structure
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid data structure from Gist');
+            }
+
             // Apply data to app
             if (data.categories) {
                 this.app.categories = data.categories;
@@ -206,14 +242,12 @@ class GitHubSync {
             this.app.saveToLocalStorage();
 
             // Re-render everything
-            this.app.renderCategories();
+            this.app.render();
             this.app.applySettings();
-            if (window.footerManager) {
-                window.footerManager.render();
-            }
+            renderFooterBookmarks(this.app);
 
             this.updateSyncStatus('success', 'Loaded from cloud');
-            console.log('Data pulled from GitHub Gist successfully');
+            console.log('✅ Data pulled from GitHub Gist successfully');
 
             // Auto-hide success message after 3s
             setTimeout(() => {
@@ -221,8 +255,22 @@ class GitHubSync {
             }, 3000);
 
         } catch (error) {
-            console.error('Pull error:', error);
-            this.updateSyncStatus('error', `Load failed: ${error.message}`);
+            console.error('❌ Pull error:', error);
+            
+            // More helpful error messages
+            let errorMsg = 'Load failed';
+            if (error.message.includes('404') || error.message.includes('not found')) {
+                errorMsg = 'Gist not found. Will create on first save.';
+            } else if (error.message.includes('401') || error.message.includes('token')) {
+                errorMsg = 'Invalid token. Please reconnect.';
+            } else {
+                errorMsg = `Load failed: ${error.message}`;
+            }
+            
+            this.updateSyncStatus('error', errorMsg);
+            
+            // Re-throw for initialSync to handle
+            throw error;
         } finally {
             this.isSyncing = false;
         }
@@ -231,15 +279,24 @@ class GitHubSync {
     async initialSync() {
         if (!this.isConfigured()) {
             console.log('GitHub sync not configured');
-            return;
+            return false;
         }
 
         try {
-            // Try to pull data first
+            // Check if Gist exists
+            const gistId = this.getGistId();
+            if (!gistId) {
+                console.log('No Gist ID found, will create on first save');
+                return false;
+            }
+
+            // Try to pull data from existing Gist
             await this.pullData();
+            return true;
         } catch (error) {
-            console.log('No remote data found, will create on first save');
-            // If gist doesn't exist yet, it will be created on first push
+            console.log('Initial sync failed:', error.message);
+            console.log('Will use local data and create Gist on first save');
+            return false;
         }
     }
 
