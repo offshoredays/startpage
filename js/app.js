@@ -1359,16 +1359,38 @@ class BookmarkApp {
             return;
         }
         
-        // Migrate data to Gist
-        await this.githubSync.migrateFromLocalStorage();
+        // Try to find existing Gist first
+        const existingGistId = await this.githubSync.findStartpageGist();
+        
+        if (existingGistId) {
+            // Found existing Gist - ask user what to do
+            const useExisting = confirm(
+                '기존 Startpage Gist를 발견했습니다!\n\n' +
+                '✅ 확인: 기존 데이터를 불러옵니다 (권장)\n' +
+                '❌ 취소: 새로운 Gist를 생성합니다\n\n' +
+                '기존 데이터를 불러오시겠습니까?'
+            );
+            
+            if (useExisting) {
+                this.githubSync.setGistId(existingGistId);
+                await this.githubSync.pullData();
+                alert('✅ 기존 데이터를 성공적으로 불러왔습니다!');
+            } else {
+                // Create new Gist
+                await this.githubSync.migrateFromLocalStorage();
+                alert('✅ 새로운 Gist를 생성했습니다!');
+            }
+        } else {
+            // No existing Gist - create new one
+            await this.githubSync.migrateFromLocalStorage();
+            alert('✅ GitHub 연결 완료!\n새 Gist를 생성했습니다.');
+        }
         
         // Update UI
         this.updateGitHubSyncUI();
         
         // Start auto-sync
         this.githubSync.startAutoSync(5);
-        
-        alert('✅ GitHub 연결 완료!\n이제 모든 변경사항이 자동으로 동기화됩니다.');
     }
     
     async disconnectGitHub() {

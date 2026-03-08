@@ -135,6 +135,33 @@ class GitHubSync {
             return false;
         }
     }
+    
+    // ========================================
+    // Auto-discover Gist
+    // ========================================
+    
+    async findStartpageGist() {
+        try {
+            console.log('🔍 Searching for existing Startpage Gist...');
+            const gists = await this.apiRequest('/gists');
+            
+            // Find gist with startpage-data.json
+            const startpageGist = gists.find(gist => 
+                gist.files && gist.files[this.gistFilename]
+            );
+            
+            if (startpageGist) {
+                console.log('✅ Found existing Gist:', startpageGist.id);
+                return startpageGist.id;
+            }
+            
+            console.log('ℹ️ No existing Startpage Gist found');
+            return null;
+        } catch (error) {
+            console.error('Error searching for Gist:', error);
+            return null;
+        }
+    }
 
     // ========================================
     // Data Sync Methods
