@@ -660,19 +660,36 @@ body {
 }
 
 .categories-wrapper {
-    columns: 2; /* 🆕 CSS 컬럼 레이아웃 사용 (진짜 Masonry!) */
-    column-gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    grid-auto-rows: minmax(auto, auto); /* 자동 높이 */
+    align-items: start; /* 위쪽 정렬 */
 }
 
+/* Category Card */
 .category-card {
-    break-inside: avoid; /* 🆕 카테고리가 컬럼 사이에서 잘리지 않도록 */
-    margin-bottom: 16px; /* 🆕 카테고리 사이 간격 */
+    height: fit-content; /* 내용에 맞춰 높이 조절 */
+    margin-bottom: 0; /* Grid gap으로 간격 조절 */
     background-color: var(--category-bg, var(--bg-secondary));
     border-radius: 8px;
     border: 1px solid var(--border-color);
     padding: 8px;
     box-shadow: var(--shadow-sm);
     transition: all 0.3s ease;
+    cursor: move; /* 드래그 가능 힌트 */
+}
+
+.category-card:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.category-card.drag-over {
+    background-color: rgba(59, 130, 246, 0.1);
+    border: 2px dashed var(--primary);
+    transform: scale(1.02);
 }
 
 /* 다크모드에서 카테고리 카드 텍스트 색상 강제 적용 */
