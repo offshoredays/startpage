@@ -37,6 +37,7 @@ class BookmarkApp {
             weatherCity: 'Ulsan',
             weatherApiKey: 'a88bc08194a466a6c8681b5bea96e68b',
             weatherUnit: 'metric',
+            surfingApiKey: '', // 서핑지수 API 키 (선택사항)
             // Clock
             clockFormat: 24,
             clockShowSeconds: false,
@@ -825,6 +826,12 @@ class BookmarkApp {
         document.getElementById('bgImageUrl').value = this.settings.bgImage || '';
         document.getElementById('bgCustomColor').value = this.settings.bgCustomColor || '';
         
+        // Surfing API Key
+        const surfingApiKeyInput = document.getElementById('surfingApiKey');
+        if (surfingApiKeyInput) {
+            surfingApiKeyInput.value = this.settings.surfingApiKey || '';
+        }
+        
         if (this.settings.bgCustomColor && this.settings.bgCustomColor.startsWith('#')) {
             document.getElementById('bgColorPicker').value = this.settings.bgCustomColor;
         }
@@ -861,6 +868,12 @@ class BookmarkApp {
         // Background
         this.settings.bgImage = document.getElementById('bgImageUrl').value.trim();
         this.settings.bgCustomColor = document.getElementById('bgCustomColor').value.trim();
+        
+        // Surfing API Key
+        const surfingApiKeyInput = document.getElementById('surfingApiKey');
+        if (surfingApiKeyInput) {
+            this.settings.surfingApiKey = surfingApiKeyInput.value.trim();
+        }
         
         const selectedPreset = document.querySelector('.bg-preset.selected');
         this.settings.bgPreset = selectedPreset ? selectedPreset.dataset.bg : '';

@@ -117,7 +117,9 @@ class GitHubSync {
             throw new Error('Gist ID not found');
         }
 
-        const gist = await this.apiRequest(`/gists/${gistId}`);
+        // Add timestamp to prevent caching
+        const cacheBuster = `?_=${Date.now()}`;
+        const gist = await this.apiRequest(`/gists/${gistId}${cacheBuster}`);
         const content = gist.files[this.gistFilename]?.content;
         
         if (!content) {
@@ -192,22 +194,31 @@ class GitHubSync {
 
             console.log('📦 Data to sync:', {
                 categories: data.categories?.length || 0,
+                bookmarks: data.categories?.reduce((s,c)=>s+c.bookmarks.length,0) || 0,
                 settings: Object.keys(data.settings || {}).length,
-                footerBookmarks: data.footerBookmarks?.length || 0
+                searchEngines: Object.keys(data.settings?.searchEngines || {}).length,
+                footerBookmarks: data.footerBookmarks?.length || 0,
+                timestamp: data.lastUpdated
             });
 
             if (gistId) {
                 console.log('📤 Updating existing Gist:', gistId.substring(0, 8) + '...');
-                await this.updateGist(data);
+                const result = await this.updateGist(data);
+                console.log('✅ Gist updated successfully');
+                
+                // Verify update by fetching back
+                const verification = await this.getGist();
+                console.log('🔍 Verification - Gist now contains:', {
+                    categories: verification.categories?.length || 0,
+                    bookmarks: verification.categories?.reduce((s,c)=>s+c.bookmarks.length,0) || 0,
+                    searchEngines: Object.keys(verification.settings?.searchEngines || {}).length
+                });
             } else {
                 console.log('📤 Creating new Gist...');
                 const gist = await this.createGist(data);
                 console.log('✅ New Gist created:', gist.id);
             }
 
-            // Update last sync time
-            localStorage.setItem('lastSyncTime', data.lastUpdated);
-            
             // Update last sync time
             localStorage.setItem('lastSyncTime', data.lastUpdated);
             
@@ -261,7 +272,13 @@ class GitHubSync {
                 throw new Error('Invalid data structure from Gist');
             }
 
-            console.log('☁️ Cloud data timestamp:', cloudData.lastUpdated);
+            console.log('☁️ Cloud data received:', {
+                categories: cloudData.categories?.length || 0,
+                bookmarks: cloudData.categories?.reduce((s,c)=>s+c.bookmarks.length,0) || 0,
+                searchEngines: Object.keys(cloudData.settings?.searchEngines || {}).length,
+                footerBookmarks: cloudData.footerBookmarks?.length || 0,
+                timestamp: cloudData.lastUpdated
+            });
             console.log('💾 Local data timestamp:', localStorage.getItem('lastSyncTime'));
 
             // Conflict detection: compare timestamps

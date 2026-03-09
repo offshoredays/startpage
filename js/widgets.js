@@ -15,13 +15,19 @@ async function initWeatherWidget(app) {
 async function loadWeatherData(app) {
     try {
         const { weatherCity, weatherApiKey, weatherUnit } = app.settings;
-        const response = await fetch(
+        
+        // OpenWeatherMap 날씨 데이터
+        const weatherResponse = await fetch(
             `https://api.openweathermap.org/data/2.5/weather?q=${weatherCity}&appid=${weatherApiKey}&units=${weatherUnit}&lang=kr`
         );
-        const data = await response.json();
+        const weatherData = await weatherResponse.json();
         
-        app.currentWeather = data;
-        updateWeatherDisplay(data);
+        app.currentWeather = weatherData;
+        
+        // 서핑지수 데이터 로드 (울산 기준)
+        await loadSurfingIndex(app, weatherData);
+        
+        updateWeatherDisplay(weatherData, app.surfingData);
     } catch (error) {
         console.error('Weather fetch error:', error);
         document.querySelector('.weather-temp').textContent = '--°';
@@ -29,22 +35,83 @@ async function loadWeatherData(app) {
     }
 }
 
-function updateWeatherDisplay(data) {
+async function loadSurfingIndex(app, weatherData) {
+    try {
+        // 해양수산부 국립해양조사원 서핑지수 API
+        // 공공데이터포털에서 API 키 발급 필요: https://www.data.go.kr/
+        const surfApiKey = app.settings.surfingApiKey || '';
+        
+        if (!surfApiKey) {
+            console.log('서핑지수 API 키가 설정되지 않았습니다.');
+            app.surfingData = null;
+            return;
+        }
+        
+        // 울산 해역 코드 (예시 - 실제 코드는 API 문서 참고)
+        const obsCode = 'DT_0042'; // 울산 관측소 코드 (실제 API 문서에서 확인 필요)
+        
+        const today = new Date();
+        const searchDate = today.toISOString().split('T')[0].replace(/-/g, '');
+        
+        const apiUrl = `http://www.khoa.go.kr/api/oceangrid/surfForecast/search.do` +
+            `?ServiceKey=${surfApiKey}` +
+            `&ObsCode=${obsCode}` +
+            `&Date=${searchDate}` +
+            `&ResultType=json`;
+        
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        
+        app.surfingData = data.result || null;
+        console.log('🏄 서핑지수 데이터:', app.surfingData);
+        
+    } catch (error) {
+        console.error('서핑지수 API 오류:', error);
+        app.surfingData = null;
+    }
+}
+
+function updateWeatherDisplay(data, surfingData) {
     const temp = Math.round(data.main.temp);
     const icon = getWeatherIcon(data.weather[0].main);
     const windSpeed = data.wind?.speed || 0;
     const windDeg = data.wind?.deg || 0;
     
-    // 파도 높이 추정 (바람 속도 기반)
-    // 간단한 추정식: 파도 높이 (m) ≈ 0.3 × 풍속 (m/s)
-    const waveHeight = (windSpeed * 0.3).toFixed(1);
-    const waveDirection = getWindDirection(windDeg);
+    // 서핑지수가 있으면 실제 데이터, 없으면 추정값
+    let waveHeight, waveDirection, surfingIndex;
+    
+    if (surfingData && surfingData.data && surfingData.data.length > 0) {
+        // 실제 서핑지수 API 데이터 사용
+        const latest = surfingData.data[0];
+        waveHeight = latest.wave_height || (windSpeed * 0.3).toFixed(1);
+        waveDirection = latest.wave_dir || getWindDirection(windDeg);
+        surfingIndex = latest.surf_idx || '-';
+    } else {
+        // 추정값 사용 (기존 로직)
+        waveHeight = (windSpeed * 0.3).toFixed(1);
+        waveDirection = getWindDirection(windDeg);
+        surfingIndex = estimateSurfingIndex(windSpeed, waveHeight);
+    }
     
     document.querySelector('.weather-temp').textContent = `${temp}°`;
     document.querySelector('.weather-location').textContent = data.name;
     document.querySelector('.weather-compact > i').className = icon;
     document.querySelector('.weather-wind').innerHTML = `<i class="fas fa-wind"></i> ${windSpeed.toFixed(1)}m/s`;
-    document.querySelector('.weather-wave').innerHTML = `<i class="fas fa-water"></i> ${waveHeight}m ${waveDirection}`;
+    document.querySelector('.weather-wave').innerHTML = `
+        <i class="fas fa-water"></i> ${waveHeight}m ${waveDirection}
+        ${surfingIndex !== '-' ? `<span style="margin-left:8px;color:#10b981;font-weight:600;">🏄 ${surfingIndex}</span>` : ''}
+    `;
+}
+
+function estimateSurfingIndex(windSpeed, waveHeight) {
+    // 간단한 서핑 조건 추정 (실제 API가 없을 때)
+    const wave = parseFloat(waveHeight);
+    
+    if (wave < 0.5) return '낮음';
+    if (wave < 1.0) return '보통';
+    if (wave < 1.5) return '좋음';
+    if (wave < 2.5) return '매우좋음';
+    return '위험';
 }
 
 function openWeatherModal(app) {
@@ -56,9 +123,21 @@ function openWeatherModal(app) {
     const windSpeed = data.wind?.speed || 0;
     const windDeg = data.wind?.deg || 0;
     
-    // 파도 높이 추정 (바람 속도 기반)
-    const waveHeight = (windSpeed * 0.3).toFixed(1);
-    const waveDirection = getWindDirection(windDeg);
+    // 서핑지수 데이터
+    let waveHeight, waveDirection, surfingIndex, surfingDesc;
+    
+    if (app.surfingData && app.surfingData.data && app.surfingData.data.length > 0) {
+        const latest = app.surfingData.data[0];
+        waveHeight = latest.wave_height || (windSpeed * 0.3).toFixed(1);
+        waveDirection = latest.wave_dir || getWindDirection(windDeg);
+        surfingIndex = latest.surf_idx || '-';
+        surfingDesc = getSurfingDescription(surfingIndex);
+    } else {
+        waveHeight = (windSpeed * 0.3).toFixed(1);
+        waveDirection = getWindDirection(windDeg);
+        surfingIndex = estimateSurfingIndex(windSpeed, waveHeight);
+        surfingDesc = getSurfingDescription(surfingIndex);
+    }
     
     document.getElementById('sunrise').textContent = sunrise;
     document.getElementById('sunset').textContent = sunset;
@@ -69,7 +148,42 @@ function openWeatherModal(app) {
     document.getElementById('waveHeight').textContent = `${waveHeight} m`;
     document.getElementById('waveDirection').textContent = waveDirection;
     
+    // 서핑지수 표시 (HTML에 추가 필요)
+    const surfingIndexEl = document.getElementById('surfingIndex');
+    if (surfingIndexEl) {
+        surfingIndexEl.innerHTML = `
+            <span style="font-size:24px;font-weight:600;color:${getSurfingColor(surfingIndex)}">
+                🏄 ${surfingIndex}
+            </span>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                ${surfingDesc}
+            </div>
+        `;
+    }
+    
     document.getElementById('weatherModal').classList.add('active');
+}
+
+function getSurfingDescription(index) {
+    const descriptions = {
+        '낮음': '서핑 조건이 좋지 않습니다',
+        '보통': '초보자에게 적합한 조건입니다',
+        '좋음': '서핑하기 좋은 조건입니다',
+        '매우좋음': '최적의 서핑 조건입니다!',
+        '위험': '파도가 너무 높아 위험합니다'
+    };
+    return descriptions[index] || '서핑 조건을 확인하세요';
+}
+
+function getSurfingColor(index) {
+    const colors = {
+        '낮음': '#94a3b8',
+        '보통': '#3b82f6',
+        '좋음': '#10b981',
+        '매우좋음': '#f59e0b',
+        '위험': '#ef4444'
+    };
+    return colors[index] || '#64748b';
 }
 
 // Clock Widget
