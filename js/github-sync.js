@@ -282,12 +282,16 @@ class GitHubSync {
 
             // Apply data to app
             if (cloudData.categories) {
+                console.log('📥 카테고리 적용:', cloudData.categories.length);
                 this.app.categories = cloudData.categories;
             }
             if (cloudData.settings) {
-                this.app.settings = { ...this.app.settings, ...cloudData.settings };
+                console.log('📥 설정 적용:', Object.keys(cloudData.settings).length, '항목');
+                // 완전히 덮어쓰기 (병합하지 않음)
+                this.app.settings = cloudData.settings;
             }
             if (cloudData.footerBookmarks) {
+                console.log('📥 푸터 북마크 적용:', cloudData.footerBookmarks.length);
                 this.app.footerBookmarks = cloudData.footerBookmarks;
             }
 
@@ -296,6 +300,10 @@ class GitHubSync {
 
             // Save to localStorage as backup
             this.app.saveToLocalStorage();
+            localStorage.setItem('settings', JSON.stringify(this.app.settings));
+            localStorage.setItem('footerBookmarks', JSON.stringify(this.app.footerBookmarks));
+            
+            console.log('💾 로컬 백업 저장 완료');
 
             // Re-render everything
             this.app.render();

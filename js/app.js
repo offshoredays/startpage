@@ -71,13 +71,23 @@ class BookmarkApp {
     async init() {
         // Try to load from cloud first, fallback to localStorage
         if (this.githubSync.isConfigured()) {
-            await this.githubSync.initialSync();
+            const syncSuccess = await this.githubSync.initialSync();
+            
+            // Only load from localStorage if sync failed
+            if (!syncSuccess) {
+                console.log('📂 Sync failed, loading from localStorage...');
+                this.loadData();
+                this.loadSettings();
+                loadFooterBookmarks(this);
+            }
+            // If sync succeeded, data is already loaded by pullData()
         } else {
+            // No GitHub sync configured, load from localStorage
             this.loadData();
+            this.loadSettings();
+            loadFooterBookmarks(this);
         }
         
-        this.loadSettings();
-        loadFooterBookmarks(this);
         this.setupEventListeners();
         this.render();
         this.initTheme();
