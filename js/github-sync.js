@@ -334,8 +334,46 @@ class GitHubSync {
             
             renderFooterBookmarks(this.app);
 
+            // 🔥 모든 위젯 재초기화 (설정 복원)
+            console.log('🔄 Re-initializing ALL widgets with restored settings...');
+            
+            // 날씨 위젯 (도시, API 키, 온도 단위, 서핑지수)
+            initWeatherWidget(this.app);
+            
+            // 시계 위젯 (형식, 초 표시, 날짜 형식, 타임존)
+            initClockWidget(this.app);
+            
+            // 환율 위젯 (USD, EUR, JPY, CNY 선택)
+            initCurrencyWidget(this.app);
+            
+            // 주식 위젯 (KOSPI, KOSDAQ, S&P500, NASDAQ, 심볼)
+            initStockWidget(this.app);
+            
+            // 검색 위젯 (검색 엔진 목록, 기본 엔진)
+            initSearchWidget(this.app);
+            
+            console.log('✅ All widgets reinitialized with settings:', {
+                weather: `${this.app.settings.weatherCity} (${this.app.settings.weatherUnit})`,
+                clock: `${this.app.settings.clockFormat}h / ${this.app.settings.clockTimezone}`,
+                currency: [
+                    this.app.settings.currencyUSD && 'USD',
+                    this.app.settings.currencyEUR && 'EUR',
+                    this.app.settings.currencyJPY && 'JPY',
+                    this.app.settings.currencyCNY && 'CNY'
+                ].filter(Boolean).join(', '),
+                stock: `${this.app.settings.stockSymbols?.length || 0} symbols`,
+                search: `${Object.keys(this.app.settings.searchEngines || {}).length} engines`
+            });
+
             this.updateSyncStatus('success', 'Loaded from cloud');
             console.log('✅ Data pulled from GitHub Gist successfully');
+            console.log('💾 All Settings Restored:', {
+                weather: this.app.settings.weatherCity,
+                clock: this.app.settings.clockTimezone,
+                currency: Object.keys(this.app.settings).filter(k => k.startsWith('currency') && this.app.settings[k]),
+                stock: this.app.settings.stockSymbols?.length || 0,
+                search: Object.keys(this.app.settings.searchEngines || {}).length
+            });
 
             // Auto-hide success message after 3s
             setTimeout(() => {

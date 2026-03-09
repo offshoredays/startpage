@@ -75,14 +75,14 @@ class BookmarkApp {
         if (this.githubSync.isConfigured()) {
             const syncSuccess = await this.githubSync.initialSync();
             
-            // Only load from localStorage if sync failed
             if (!syncSuccess) {
                 console.log('📂 Sync failed, loading from localStorage...');
                 this.loadData();
                 this.loadSettings();
                 loadFooterBookmarks(this);
+            } else {
+                console.log('✅ Sync success, data loaded from cloud');
             }
-            // If sync succeeded, data is already loaded by pullData()
         } else {
             // No GitHub sync configured, load from localStorage
             this.loadData();
@@ -100,12 +100,14 @@ class BookmarkApp {
         applyWidgetVisibility(this);
         
         // Initialize widgets using external modules
+        console.log('🔄 위젯 초기화 시작...');
         initWeatherWidget(this);
         initClockWidget(this);
         initCurrencyWidget(this);
         initStockWidget(this);
         initSearchWidget(this);
         renderFooterBookmarks(this);
+        console.log('✅ 위젯 초기화 완료');
         
         // Setup modal close events
         setupModalCloseEvents(this);
@@ -152,11 +154,23 @@ class BookmarkApp {
         if (savedSettings) {
             const saved = JSON.parse(savedSettings);
             this.settings = { ...this.settings, ...saved };
+            console.log('⚙️ Settings 로드 완료:', {
+                searchEngines: Object.keys(this.settings.searchEngines || {}).length,
+                stockSymbols: this.settings.stockSymbols?.length || 0,
+                surfingApiKey: this.settings.surfingApiKey ? '✅' : '❌'
+            });
+        } else {
+            console.log('⚙️ Settings 없음 - 기본값 사용');
         }
     }
 
     saveSettings() {
         localStorage.setItem('settings', JSON.stringify(this.settings));
+        console.log('💾 Settings 저장:', {
+            searchEngines: Object.keys(this.settings.searchEngines || {}).length,
+            stockSymbols: this.settings.stockSymbols?.length || 0,
+            surfingApiKey: this.settings.surfingApiKey ? '✅' : '❌'
+        });
         
         // Sync to GitHub if configured
         if (this.githubSync && this.githubSync.isConfigured()) {
@@ -960,15 +974,33 @@ class BookmarkApp {
             
             card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
+                // Remove all drag-over effects
+                document.querySelectorAll('.category-card').forEach(c => c.classList.remove('drag-over'));
             });
             
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
+                
+                // Add visual feedback
+                const draggedId = e.dataTransfer.types.includes('categoryid') ? 
+                    e.dataTransfer.getData('categoryId') : null;
+                if (draggedId && draggedId !== card.dataset.categoryId) {
+                    card.classList.add('drag-over');
+                }
+            });
+            
+            card.addEventListener('dragleave', (e) => {
+                // Only remove if leaving the card itself (not children)
+                if (e.target === card) {
+                    card.classList.remove('drag-over');
+                }
             });
             
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
+                card.classList.remove('drag-over');
+                
                 const draggedId = e.dataTransfer.getData('categoryId');
                 const targetId = card.dataset.categoryId;
                 
