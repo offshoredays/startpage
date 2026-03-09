@@ -1,14 +1,20 @@
-# Bryan's Start Page - GitHub 동기화 v2.2 완성 ✨🔄
+# Bryan's Start Page - GitHub 동기화 v2.3 완성 ✨🔄🛠️
 
 울산 소재 법률사무소 변호사이자 울산광역시서핑협회 회장인 브라이언을 위한 **맞춤형 스타트 페이지**입니다.
 
 ## 🎯 프로젝트 개요
 
-AI 기반 법률 업무 자동화와 서핑 라이프스타일을 결합한 개인화된 브라우저 시작 페이지로, **GitHub Gist 기반 클라우드 동기화 + 자동 Gist 검색**을 통해 어느 기기에서나 같은 환경을 제공합니다.
+AI 기반 법률 업무 자동화와 서핑 라이프스타일을 결합한 개인화된 브라우저 시작 페이지로, **GitHub Gist 기반 클라우드 동기화 + 스마트 충돌 방지**를 통해 어느 기기에서나 같은 환경을 제공합니다.
 
-## 🆕 최신 업데이트 (v2.2)
+## 🆕 최신 업데이트 (v2.3) 🔥
 
-### 🔍 자동 Gist 검색 기능
+### 🛡️ 스마트 충돌 방지 시스템
+- **타임스탬프 비교**: 로컬 vs 클라우드 데이터 자동 비교
+- **최신 버전 우선**: 더 최근 데이터를 자동으로 선택
+- **충돌 로그**: 콘솔에서 동기화 과정 확인 가능
+- **삭제/추가 충돌 해결**: 더 이상 북마크가 부활하거나 사라지지 않음!
+
+### 🔍 자동 Gist 검색 기능 (v2.2)
 - **자동 발견**: 두 번째 기기에서 Token만 입력하면 기존 Gist 자동 검색
 - **스마트 선택**: 기존 데이터 불러오기 or 새 Gist 생성 선택 가능
 - **더 쉬운 설정**: Gist ID 수동 입력 불필요!
@@ -248,6 +254,36 @@ this.settings = {
 
 ## 🐛 문제 해결
 
+### ⚠️ 북마크가 사라지거나 되살아나는 문제 (v2.3에서 해결!)
+**원인**: 두 기기가 서로 다른 버전의 데이터를 덮어쓰는 충돌
+**해결책**: v2.3의 스마트 충돌 방지 시스템이 자동으로 최신 데이터를 선택합니다.
+
+**디버깅 방법** (브라우저 콘솔 F12):
+```javascript
+// 1. 타임스탬프 확인
+console.log('☁️ Cloud timestamp:', localStorage.getItem('lastSyncTime'));
+
+// 2. 현재 데이터 확인
+console.log('📊 Current data:', {
+  categories: app.categories.length,
+  bookmarks: app.categories.reduce((sum, c) => sum + c.bookmarks.length, 0),
+  settings: Object.keys(app.settings).length
+});
+
+// 3. 강제 동기화
+await app.githubSync.pushData();  // 현재 데이터를 클라우드에 업로드
+await app.githubSync.pullData(true);  // 클라우드 데이터로 강제 덮어쓰기
+```
+
+**완전 초기화 방법** (마지막 수단):
+```javascript
+// 로컬 데이터 초기화
+localStorage.clear();
+location.reload();
+
+// 그 다음 GitHub Token 재입력 → "클라우드에서 가져오기" 클릭
+```
+
 ### GitHub 동기화 관련
 - **"유효하지 않은 Token" 오류**
   - Token이 올바르게 복사되었는지 확인
@@ -258,11 +294,18 @@ this.settings = {
   - 인터넷 연결 상태 확인
   - "지금 동기화" 버튼으로 수동 동기화 시도
   - 브라우저 콘솔(F12)에서 오류 확인
+  - 콘솔에서 `✅ Data pushed...` 또는 `✅ Data pulled...` 메시지 확인
 
 - **다른 기기에서 데이터가 안 보임**
   - 같은 Token을 사용했는지 확인
   - "클라우드에서 가져오기" 버튼 클릭
-  - Gist ID가 정확한지 확인
+  - 새로고침 (Ctrl+Shift+R)로 캐시 제거 후 재시도
+  - 콘솔에서 Gist ID 확인: `console.log(localStorage.getItem('github_gist_id'))`
+
+- **위젯/검색 엔진 설정이 동기화 안 됨**
+  - v2.3부터 모든 설정이 자동 동기화됩니다
+  - "지금 동기화" 클릭 후 다른 기기에서 "클라우드에서 가져오기" 클릭
+  - 설정 변경 후 5분 대기 (자동 동기화) 또는 수동 동기화
 
 ### 날씨 정보가 표시되지 않음
 - API 키가 올바른지 확인
