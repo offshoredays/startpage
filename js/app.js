@@ -37,7 +37,8 @@ class BookmarkApp {
             weatherCity: 'Ulsan',
             weatherApiKey: 'a88bc08194a466a6c8681b5bea96e68b',
             weatherUnit: 'metric',
-            surfingApiKey: '', // 서핑지수 API 키 (선택사항)
+            surfingApiKey: '', // 서핑지수 API 키
+            surfingObsCode: 'TW_0062', // 울산 관측소 코드
             // Clock
             clockFormat: 24,
             clockShowSeconds: false,
@@ -832,6 +833,11 @@ class BookmarkApp {
             surfingApiKeyInput.value = this.settings.surfingApiKey || '';
         }
         
+        const surfingObsCodeInput = document.getElementById('surfingObsCode');
+        if (surfingObsCodeInput) {
+            surfingObsCodeInput.value = this.settings.surfingObsCode || 'TW_0062';
+        }
+        
         if (this.settings.bgCustomColor && this.settings.bgCustomColor.startsWith('#')) {
             document.getElementById('bgColorPicker').value = this.settings.bgCustomColor;
         }
@@ -873,6 +879,11 @@ class BookmarkApp {
         const surfingApiKeyInput = document.getElementById('surfingApiKey');
         if (surfingApiKeyInput) {
             this.settings.surfingApiKey = surfingApiKeyInput.value.trim();
+        }
+        
+        const surfingObsCodeInput = document.getElementById('surfingObsCode');
+        if (surfingObsCodeInput) {
+            this.settings.surfingObsCode = surfingObsCodeInput.value.trim() || 'TW_0062';
         }
         
         const selectedPreset = document.querySelector('.bg-preset.selected');
