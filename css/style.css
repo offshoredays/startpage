@@ -663,6 +663,8 @@ body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
+    grid-auto-rows: min-content; /* 각 카테고리가 내용에 맞춰 높이 조절 */
+    align-items: start; /* 카테고리들을 위쪽 정렬 */
 }
 
 /* Category Card */
