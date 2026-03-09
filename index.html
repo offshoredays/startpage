@@ -313,15 +313,25 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-water"></i> 서핑지수 API 설정 (선택사항)</label>
+                    <label><i class="fas fa-water"></i> 서핑지수 API 설정</label>
                     <small style="display: block; margin-bottom: 12px;">
                         해양수산부 국립해양조사원 서핑지수 API를 사용하여 실시간 서핑 조건을 확인할 수 있습니다.<br>
-                        <a href="https://www.data.go.kr/data/15097079/openapi.do" target="_blank">API 키 발급하기 (공공데이터포털)</a>
+                        <strong>1단계:</strong> <a href="https://www.data.go.kr/data/15097079/openapi.do" target="_blank">API 키 발급하기 (공공데이터포털)</a><br>
+                        <strong>2단계:</strong> 활용신청 → 승인 대기 (보통 즉시 승인)<br>
+                        <strong>3단계:</strong> 마이페이지 → 오픈API → 일반 인증키 (Encoding) 복사<br>
+                        <strong>4단계:</strong> 아래에 키 붙여넣기
                     </small>
-                    <input type="password" id="surfingApiKey" placeholder="서핑지수 API 키 입력" class="form-input">
-                    <small style="color: var(--text-secondary); margin-top: 8px; display: block;">
-                        API 키를 입력하지 않으면 바람 속도 기반 추정값이 표시됩니다.
-                    </small>
+                    <div style="margin-bottom: 12px;">
+                        <label for="surfingApiKey" style="font-weight: 600; margin-bottom: 4px; display: block;">API 인증키</label>
+                        <input type="password" id="surfingApiKey" placeholder="일반 인증키 (Encoding) 붙여넣기" class="form-input">
+                    </div>
+                    <div>
+                        <label for="surfingObsCode" style="font-weight: 600; margin-bottom: 4px; display: block;">관측소 코드 (선택사항)</label>
+                        <input type="text" id="surfingObsCode" placeholder="TW_0062 (울산 기본값)" class="form-input">
+                        <small style="color: var(--text-secondary); margin-top: 4px; display: block;">
+                            관측소 코드는 API 문서에서 확인하세요. 비워두면 울산(TW_0062) 사용.
+                        </small>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label><i class="fab fa-github"></i> GitHub 클라우드 동기화</label>
