@@ -312,7 +312,7 @@ class GitHubSync {
 
     async initialSync() {
         if (!this.isConfigured()) {
-            console.log('GitHub sync not configured');
+            console.log('ℹ️ GitHub sync not configured');
             return false;
         }
 
@@ -320,16 +320,21 @@ class GitHubSync {
             // Check if Gist exists
             const gistId = this.getGistId();
             if (!gistId) {
-                console.log('No Gist ID found, will create on first save');
+                console.log('ℹ️ No Gist ID found, will create on first save');
                 return false;
             }
 
+            console.log('🔄 Initial sync: Checking for cloud data...');
+            
             // Try to pull data from existing Gist
             await this.pullData();
+            console.log('✅ Initial sync completed successfully');
             return true;
         } catch (error) {
-            console.log('Initial sync failed:', error.message);
-            console.log('Will use local data and create Gist on first save');
+            console.error('❌ Initial sync failed:', error.message);
+            console.log('📂 Using local data instead');
+            
+            // Don't throw error, just use local data
             return false;
         }
     }
