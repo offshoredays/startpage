@@ -112,6 +112,11 @@ class BookmarkApp {
         const savedData = localStorage.getItem('bookmarkData');
         if (savedData) {
             this.categories = JSON.parse(savedData);
+            
+            // Set initial timestamp if not exists
+            if (!localStorage.getItem('lastSyncTime')) {
+                localStorage.setItem('lastSyncTime', new Date().toISOString());
+            }
         } else {
             this.loadSampleData();
         }
@@ -1431,7 +1436,8 @@ class BookmarkApp {
         
         if (!confirm) return;
         
-        await this.githubSync.pullData();
+        // Force overwrite with cloud data
+        await this.githubSync.pullData(true);
     }
 }
 

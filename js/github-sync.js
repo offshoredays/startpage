@@ -205,8 +205,15 @@ class GitHubSync {
                 console.log('✅ New Gist created:', gist.id);
             }
 
+            // Update last sync time
+            localStorage.setItem('lastSyncTime', data.lastUpdated);
+            
+            // Update last sync time
+            localStorage.setItem('lastSyncTime', data.lastUpdated);
+            
             this.updateSyncStatus('success', 'Synced successfully');
             console.log('✅ Data pushed to GitHub Gist successfully');
+            console.log('⏰ Sync timestamp:', data.lastUpdated);
             
             // Auto-hide success message after 3s
             setTimeout(() => {
@@ -237,7 +244,7 @@ class GitHubSync {
         }
     }
 
-    async pullData() {
+    async pullData(forceOverwrite = false) {
         if (this.isSyncing) {
             console.log('Sync already in progress');
             return;
@@ -247,23 +254,45 @@ class GitHubSync {
             this.isSyncing = true;
             this.updateSyncStatus('syncing', 'Loading from cloud...');
 
-            const data = await this.getGist();
+            const cloudData = await this.getGist();
 
             // Validate data structure
-            if (!data || typeof data !== 'object') {
+            if (!cloudData || typeof cloudData !== 'object') {
                 throw new Error('Invalid data structure from Gist');
             }
 
+            console.log('☁️ Cloud data timestamp:', cloudData.lastUpdated);
+            console.log('💾 Local data timestamp:', localStorage.getItem('lastSyncTime'));
+
+            // Conflict detection: compare timestamps
+            const localTimestamp = localStorage.getItem('lastSyncTime');
+            const cloudTimestamp = cloudData.lastUpdated;
+
+            if (!forceOverwrite && localTimestamp && cloudTimestamp) {
+                const localTime = new Date(localTimestamp).getTime();
+                const cloudTime = new Date(cloudTimestamp).getTime();
+
+                if (localTime > cloudTime) {
+                    console.log('⚠️ Local data is newer than cloud data!');
+                    console.log('🔄 Pushing local data to cloud instead...');
+                    await this.pushData();
+                    return;
+                }
+            }
+
             // Apply data to app
-            if (data.categories) {
-                this.app.categories = data.categories;
+            if (cloudData.categories) {
+                this.app.categories = cloudData.categories;
             }
-            if (data.settings) {
-                this.app.settings = { ...this.app.settings, ...data.settings };
+            if (cloudData.settings) {
+                this.app.settings = { ...this.app.settings, ...cloudData.settings };
             }
-            if (data.footerBookmarks) {
-                this.app.footerBookmarks = data.footerBookmarks;
+            if (cloudData.footerBookmarks) {
+                this.app.footerBookmarks = cloudData.footerBookmarks;
             }
+
+            // Update last sync time
+            localStorage.setItem('lastSyncTime', cloudData.lastUpdated || new Date().toISOString());
 
             // Save to localStorage as backup
             this.app.saveToLocalStorage();
