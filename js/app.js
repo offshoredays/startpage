@@ -972,21 +972,20 @@ class BookmarkApp {
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('categoryId', card.dataset.categoryId);
                 card.classList.add('dragging');
-                setTimeout(() => {
-                    card.style.opacity = '0.5';
-                }, 0);
+                
+                console.log('🎯 드래그 시작:', card.querySelector('h2')?.textContent);
             });
             
             card.addEventListener('dragend', (e) => {
                 card.classList.remove('dragging');
-                card.style.opacity = '1';
                 draggedElement = null;
+                
                 // Remove all drag-over effects
                 document.querySelectorAll('.category-card').forEach(c => {
-                    c.classList.remove('drag-over');
-                    c.classList.remove('drag-over-top');
-                    c.classList.remove('drag-over-bottom');
+                    c.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
                 });
+                
+                console.log('✅ 드래그 종료');
             });
             
             card.addEventListener('dragover', (e) => {
@@ -999,28 +998,34 @@ class BookmarkApp {
                     const mouseY = e.clientY;
                     const cardMiddle = rect.top + rect.height / 2;
                     
-                    // Remove all previous classes
-                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                    // Remove all previous classes from all cards
+                    document.querySelectorAll('.category-card').forEach(c => {
+                        c.classList.remove('drop-target-before', 'drop-target-after');
+                    });
                     
                     // Add class based on position
                     if (mouseY < cardMiddle) {
-                        card.classList.add('drag-over-top');
+                        card.classList.add('drop-target-before');
+                        card.classList.remove('drop-target-after');
                     } else {
-                        card.classList.add('drag-over-bottom');
+                        card.classList.add('drop-target-after');
+                        card.classList.remove('drop-target-before');
                     }
+                    
+                    card.classList.add('drag-over');
                 }
             });
             
             card.addEventListener('dragleave', (e) => {
                 // Only remove if actually leaving (not entering child)
                 if (!card.contains(e.relatedTarget)) {
-                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                    card.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
                 }
             });
             
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
-                card.classList.remove('drag-over-top', 'drag-over-bottom');
+                card.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
                 
                 const draggedId = e.dataTransfer.getData('categoryId');
                 const targetId = card.dataset.categoryId;
@@ -1034,6 +1039,12 @@ class BookmarkApp {
                     const mouseY = e.clientY;
                     const cardMiddle = rect.top + rect.height / 2;
                     const insertBefore = mouseY < cardMiddle;
+                    
+                    console.log('📍 드롭 위치:', {
+                        from: this.categories[draggedIndex].name,
+                        to: this.categories[targetIndex].name,
+                        position: insertBefore ? '위' : '아래'
+                    });
                     
                     // Remove dragged item
                     const [removed] = this.categories.splice(draggedIndex, 1);
@@ -1050,6 +1061,8 @@ class BookmarkApp {
                     
                     // Insert at new position
                     this.categories.splice(newIndex, 0, removed);
+                    
+                    console.log('✅ 새 순서:', this.categories.map(c => c.name).join(' → '));
                     
                     this.saveData();
                     this.render();
