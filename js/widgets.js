@@ -14,20 +14,17 @@ async function initWeatherWidget(app) {
 
 async function loadWeatherData(app) {
     try {
-        const { weatherCity, weatherApiKey, weatherUnit } = app.settings;
+        const { surfingApiKey, surfingBeachNum } = app.settings;
         
-        // OpenWeatherMap 날씨 데이터
-        const weatherResponse = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?q=${weatherCity}&appid=${weatherApiKey}&units=${weatherUnit}&lang=kr`
-        );
-        const weatherData = await weatherResponse.json();
+        if (!surfingApiKey) {
+            console.warn('⚠️ 서핑지수 API 키가 설정되지 않았습니다.');
+            displayNoApiKey();
+            return;
+        }
         
-        app.currentWeather = weatherData;
+        // 🏄 공공데이터 포털 서핑지수 API
+        await loadSurfingData(app);
         
-        // 서핑지수 데이터 로드 (울산 기준)
-        await loadSurfingIndex(app, weatherData);
-        
-        updateWeatherDisplay(weatherData, app.surfingData);
     } catch (error) {
         console.error('Weather fetch error:', error);
         document.querySelector('.weather-temp').textContent = '--°';
@@ -35,176 +32,198 @@ async function loadWeatherData(app) {
     }
 }
 
-async function loadSurfingIndex(app, weatherData) {
+function displayNoApiKey() {
+    document.querySelector('.weather-temp').textContent = 'API';
+    document.querySelector('.weather-location').textContent = '키 필요';
+    document.querySelector('.weather-wind').innerHTML = '<i class="fas fa-wind"></i> --';
+    document.querySelector('.weather-wave').innerHTML = '<i class="fas fa-water"></i> --';
+}
+
+async function loadSurfingData(app) {
     try {
-        // 해양수산부 국립해양조사원 서핑지수 API
-        const surfApiKey = app.settings.surfingApiKey || '';
+        const surfApiKey = app.settings.surfingApiKey;
+        const beachNum = app.settings.surfingBeachNum || '102'; // 기본: 울산 일산해수욕장
         
-        if (!surfApiKey) {
-            console.log('⚠️ 서핑지수 API 키가 설정되지 않았습니다.');
-            app.surfingData = null;
-            return;
-        }
+        // 오늘 날짜와 시간
+        const now = new Date();
+        const date = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+        const hours = String(now.getHours()).padStart(2, '0');
+        const time = hours + '00'; // HH00
         
-        // 실제 API 엔드포인트
-        // 참고: https://www.data.go.kr/data/15097079/openapi.do
-        const today = new Date();
-        const searchDate = today.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
-        
-        // 울산 기상청 관측소 코드 (실제 API 문서에서 확인 필요)
-        // 예시: DT_0042, TW_0062 등
-        const obsCode = app.settings.surfingObsCode || 'TW_0062'; // 기본값: 울산
-        
-        const apiUrl = `https://apis.data.go.kr/1192136/tcstSurfIngv2/getBestcstSurfingApiService/v2` +
-            `?serviceKey=${surfApiKey}` +
-            `&numOfRows=10` +
-            `&pageNo=1` +
-            `&dataType=json` +
-            `&base_date=${searchDate}`;
+        // 공공데이터 포털 API
+        const apiUrl = `https://www.khoa.go.kr/api/service/fcstSurfingService/fcstSurfing` +
+            `?serviceKey=${encodeURIComponent(surfApiKey)}` +
+            `&date=${date}` +
+            `&time=${time}` +
+            `&beachNum=${beachNum}` +
+            `&resultType=json`;
         
         console.log('🏄 서핑지수 API 요청:', apiUrl.replace(surfApiKey, 'KEY_HIDDEN'));
         
         const response = await fetch(apiUrl);
-        const data = await response.json();
+        const text = await response.text();
         
-        console.log('🏄 서핑지수 응답:', data);
+        console.log('🏄 응답 (raw):', text);
         
-        // API 응답 구조에 따라 조정 필요
-        if (data.response && data.response.body && data.response.body.items) {
-            app.surfingData = data.response.body.items.item || [];
-            
-            // 가장 최근 데이터 선택
-            if (Array.isArray(app.surfingData)) {
-                app.surfingData = app.surfingData[0];
-            }
-            
-            console.log('✅ 서핑지수 데이터:', app.surfingData);
-        } else {
-            console.warn('⚠️ 서핑지수 응답 구조가 예상과 다릅니다:', data);
-            app.surfingData = null;
+        // XML 파싱 (API가 JSON이 아닌 XML로 응답할 수 있음)
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            // XML 파싱
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, 'text/xml');
+            data = parseXMLtoJSON(xmlDoc);
         }
         
+        console.log('🏄 파싱된 데이터:', data);
+        
+        // 데이터 저장
+        app.surfingData = data;
+        
+        // 위젯 업데이트
+        updateWeatherDisplay(app);
+        
     } catch (error) {
-        console.error('❌ 서핑지수 API 오류:', error);
+        console.error('🏄 서핑지수 API 오류:', error);
         app.surfingData = null;
+        displayNoApiKey();
     }
 }
 
-function updateWeatherDisplay(data, surfingData) {
-    const temp = Math.round(data.main.temp);
-    const icon = getWeatherIcon(data.weather[0].main);
-    const windSpeed = data.wind?.speed || 0;
-    const windDeg = data.wind?.deg || 0;
+function parseXMLtoJSON(xmlDoc) {
+    const item = xmlDoc.querySelector('item');
+    if (!item) return null;
     
-    // 서핑 데이터 표시 (API 데이터만 사용, 추정값 제거)
-    let surfingInfo = '';
+    return {
+        beachNum: item.querySelector('beachNum')?.textContent,
+        wavCond: item.querySelector('wavCond')?.textContent,      // 파도 상태
+        wavHgt: item.querySelector('wavHgt')?.textContent,        // 파도 높이
+        wavDir: item.querySelector('wavDir')?.textContent,        // 파도 방향
+        wavPeriod: item.querySelector('wavPeriod')?.textContent,  // 파도 주기
+        windDir: item.querySelector('windDir')?.textContent,      // 바람 방향
+        windSpd: item.querySelector('windSpd')?.textContent,      // 풍속
+        temp: item.querySelector('temp')?.textContent,            // 기온
+        waterTemp: item.querySelector('waterTemp')?.textContent   // 수온
+    };
+}
+
+function updateWeatherDisplay(app) {
+    const data = app.surfingData;
     
-    if (surfingData) {
-        // 실제 API 데이터 사용
-        const waveHeight = surfingData.waveHeight || surfingData.wave_height || '-';
-        const waveDirection = surfingData.waveDirection || surfingData.wave_dir || '-';
-        const surfIndex = surfingData.surfIndex || surfingData.surf_idx || '-';
-        
-        surfingInfo = ` 🏄 ${surfIndex}`;
-        
-        // 파도 정보
-        const waveInfo = waveHeight !== '-' ? `${waveHeight}m` : '';
-        const dirInfo = waveDirection !== '-' ? ` ${waveDirection}` : '';
-        
-        document.querySelector('.weather-temp').textContent = `${temp}°`;
-        document.querySelector('.weather-location').textContent = data.name;
-        document.querySelector('.weather-compact > i').className = icon;
-        document.querySelector('.weather-wind').innerHTML = `<i class="fas fa-wind"></i> ${windSpeed.toFixed(1)}m/s`;
-        document.querySelector('.weather-wave').innerHTML = `
-            <i class="fas fa-water"></i> ${waveInfo}${dirInfo}
-            <span style="margin-left:8px;color:${getSurfingColor(surfIndex)};font-weight:600;">${surfingInfo}</span>
-        `;
+    if (!data) {
+        displayNoApiKey();
+        return;
+    }
+    
+    // 선택된 정보만 표시
+    const settings = app.settings;
+    
+    // 기온 표시
+    if (settings.showTemp && data.temp) {
+        document.querySelector('.weather-temp').textContent = `${Math.round(data.temp)}°`;
     } else {
-        // API 키가 없을 때: 기본 날씨 정보만 표시
-        document.querySelector('.weather-temp').textContent = `${temp}°`;
-        document.querySelector('.weather-location').textContent = data.name;
-        document.querySelector('.weather-compact > i').className = icon;
-        document.querySelector('.weather-wind').innerHTML = `<i class="fas fa-wind"></i> ${windSpeed.toFixed(1)}m/s`;
-        document.querySelector('.weather-wave').innerHTML = `<i class="fas fa-water"></i> API 키 필요`;
+        document.querySelector('.weather-temp').textContent = '--°';
+    }
+    
+    // 위치 표시
+    const beachNames = {
+        '102': '울산',
+        '103': '부산',
+        '201': '강릉'
+    };
+    const beachNum = app.settings.surfingBeachNum || '102';
+    document.querySelector('.weather-location').textContent = beachNames[beachNum] || '해수욕장';
+    
+    // 바람 정보
+    if (settings.showWind && data.windSpd) {
+        let windText = `${data.windSpd}m/s`;
+        if (settings.showWindDir && data.windDir) {
+            windText += ` ${data.windDir}`;
+        }
+        document.querySelector('.weather-wind').innerHTML = 
+            `<i class="fas fa-wind"></i> ${windText}`;
+    } else {
+        document.querySelector('.weather-wind').innerHTML = '<i class="fas fa-wind"></i> --';
+    }
+    
+    // 파도 정보
+    if (settings.showWave && data.wavHgt) {
+        let waveText = `${data.wavHgt}m`;
+        if (settings.showWaveDir && data.wavDir) {
+            waveText += ` ${data.wavDir}`;
+        }
+        if (settings.showWaveCond && data.wavCond) {
+            waveText += ` (${data.wavCond})`;
+        }
+        document.querySelector('.weather-wave').innerHTML = 
+            `<i class="fas fa-water"></i> ${waveText}`;
+    } else {
+        document.querySelector('.weather-wave').innerHTML = '<i class="fas fa-water"></i> --';
     }
 }
-
 
 function openWeatherModal(app) {
-    const data = app.currentWeather;
-    if (!data) return;
+    const data = app.surfingData;
     
-    const sunrise = new Date(data.sys.sunrise * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    const sunset = new Date(data.sys.sunset * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    const windSpeed = data.wind?.speed || 0;
-    const windDeg = data.wind?.deg || 0;
-    
-    // 서핑 데이터 (실제 API 데이터만)
-    let surfingHTML = '<p>서핑지수 API 키를 설정하면 실시간 서핑 조건을 확인할 수 있습니다.</p>';
-    
-    if (app.surfingData) {
-        const waveHeight = app.surfingData.waveHeight || app.surfingData.wave_height || '-';
-        const waveDirection = app.surfingData.waveDirection || app.surfingData.wave_dir || '-';
-        const surfIndex = app.surfingData.surfIndex || app.surfingData.surf_idx || '-';
-        const waterTemp = app.surfingData.waterTemp || app.surfingData.water_temp || '-';
-        const period = app.surfingData.period || app.surfingData.wave_period || '-';
-        
-        surfingHTML = `
-            <div style="background: rgba(16, 185, 129, 0.1); padding: 16px; border-radius: 8px; margin-top: 12px;">
-                <h3 style="margin: 0 0 12px 0; color: var(--success-color);">🏄 서핑 조건</h3>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                    <div>
-                        <strong>서핑지수:</strong> <span style="color:${getSurfingColor(surfIndex)};font-weight:600;">${surfIndex}</span>
-                    </div>
-                    <div><strong>파도 높이:</strong> ${waveHeight}m</div>
-                    <div><strong>파도 방향:</strong> ${waveDirection}</div>
-                    <div><strong>주기:</strong> ${period}초</div>
-                    <div><strong>수온:</strong> ${waterTemp}°C</div>
-                    <div><strong>바람:</strong> ${windSpeed.toFixed(1)}m/s ${getWindDirection(windDeg)}</div>
-                </div>
-                <p style="margin: 12px 0 0 0; font-size: 12px; color: var(--text-secondary);">
-                    ${getSurfingDescription(surfIndex)}
-                </p>
-            </div>
-        `;
+    if (!data) {
+        alert('날씨 데이터를 불러올 수 없습니다. API 키를 확인해주세요.');
+        return;
     }
     
-    document.getElementById('sunrise').textContent = sunrise;
-    document.getElementById('sunset').textContent = sunset;
-    document.getElementById('humidity').textContent = `${data.main.humidity}%`;
-    document.getElementById('windSpeed').textContent = `${windSpeed.toFixed(1)} m/s`;
-    document.getElementById('windDirection').textContent = getWindDirection(windDeg);
-    document.getElementById('pressure').textContent = `${data.main.pressure} hPa`;
+    const settings = app.settings;
+    const beachNames = {
+        '102': '울산 일산해수욕장',
+        '103': '부산 해운대',
+        '201': '강릉 경포대'
+    };
+    const beachNum = app.settings.surfingBeachNum || '102';
     
-    // 서핑 정보 표시
-    const surfingIndexEl = document.getElementById('surfingIndex');
-    if (surfingIndexEl) {
-        surfingIndexEl.innerHTML = surfingHTML;
+    // 모달 내용 구성
+    let modalContent = `\n\n🏄 ${beachNames[beachNum]}\n\n`;
+    
+    // 기온
+    if (settings.showTemp && data.temp) {
+        modalContent += `🌡️ 기온: ${data.temp}°C\n`;
     }
     
-    document.getElementById('weatherModal').classList.add('active');
-}
-
-function getSurfingDescription(index) {
-    const descriptions = {
-        '낮음': '서핑 조건이 좋지 않습니다',
-        '보통': '초보자에게 적합한 조건입니다',
-        '좋음': '서핑하기 좋은 조건입니다',
-        '매우좋음': '최적의 서핑 조건입니다!',
-        '위험': '파도가 너무 높아 위험합니다'
-    };
-    return descriptions[index] || '서핑 조건을 확인하세요';
-}
-
-function getSurfingColor(index) {
-    const colors = {
-        '낮음': '#94a3b8',
-        '보통': '#3b82f6',
-        '좋음': '#10b981',
-        '매우좋음': '#f59e0b',
-        '위험': '#ef4444'
-    };
-    return colors[index] || '#64748b';
+    // 수온
+    if (settings.showWaterTemp && data.waterTemp) {
+        modalContent += `💧 수온: ${data.waterTemp}°C\n`;
+    }
+    
+    // 파도 높이
+    if (settings.showWave && data.wavHgt) {
+        modalContent += `🌊 파도 높이: ${data.wavHgt}m\n`;
+    }
+    
+    // 파도 방향
+    if (settings.showWaveDir && data.wavDir) {
+        modalContent += `↗️ 파도 방향: ${data.wavDir}\n`;
+    }
+    
+    // 파도 주기
+    if (settings.showWavePeriod && data.wavPeriod) {
+        modalContent += `⏱️ 파도 주기: ${data.wavPeriod}초\n`;
+    }
+    
+    // 풍속
+    if (settings.showWind && data.windSpd) {
+        modalContent += `💨 풍속: ${data.windSpd}m/s\n`;
+    }
+    
+    // 바람 방향
+    if (settings.showWindDir && data.windDir) {
+        modalContent += `🧭 바람 방향: ${data.windDir}\n`;
+    }
+    
+    // 파도 상태
+    if (settings.showWaveCond && data.wavCond) {
+        modalContent += `✅ 파도 상태: ${data.wavCond}\n`;
+    }
+    
+    // 모달 표시 (alert 사용)
+    alert(modalContent);
 }
 
 // Clock Widget
@@ -212,308 +231,164 @@ function initClockWidget(app) {
     updateClock(app);
     setInterval(() => updateClock(app), 1000);
     
-    document.getElementById('clockWidget').addEventListener('click', () => {
-        openClockDetailModal(app);
+    document.getElementById('clockWidget').addEventListener('click', (e) => {
+        if (!e.target.closest('.widget-settings-btn')) {
+            openClockModal(app);
+        }
     });
 }
 
 function updateClock(app) {
-    const { clockFormat, clockShowSeconds, clockDateFormat, clockTimezone } = app.settings;
-    
     const now = new Date();
-    const options = { timeZone: clockTimezone || 'Asia/Seoul' };
-    const timeInZone = new Date(now.toLocaleString('en-US', options));
+    const timezone = app.settings.clockTimezone || 'Asia/Seoul';
     
-    let hours = timeInZone.getHours();
-    const minutes = timeInZone.getMinutes().toString().padStart(2, '0');
-    const seconds = timeInZone.getSeconds().toString().padStart(2, '0');
+    const clockOptions = {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit'
+    };
     
-    const colonVisible = seconds % 2 === 0;
-    const colon = `<span class="colon"${colonVisible ? '' : ' style="opacity: 0;"'}>:</span>`;
-    
-    if (clockFormat === 12) {
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
-        const timeStr = clockShowSeconds 
-            ? `${hours}${colon}${minutes}${colon}${seconds} ${ampm}`
-            : `${hours}${colon}${minutes} ${ampm}`;
-        document.querySelector('.clock-time').innerHTML = timeStr;
-    } else {
-        const hoursStr = hours.toString().padStart(2, '0');
-        const timeStr = clockShowSeconds 
-            ? `${hoursStr}${colon}${minutes}${colon}${seconds}`
-            : `${hoursStr}${colon}${minutes}`;
-        document.querySelector('.clock-time').innerHTML = timeStr;
+    if (app.settings.clockShowSeconds) {
+        clockOptions.second = '2-digit';
     }
     
-    let dateStr;
-    if (clockDateFormat === 'ko') {
-        const opts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: clockTimezone || 'Asia/Seoul' };
-        dateStr = timeInZone.toLocaleDateString('ko-KR', opts);
-    } else if (clockDateFormat === 'en') {
-        const opts = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'long', timeZone: clockTimezone || 'Asia/Seoul' };
-        dateStr = timeInZone.toLocaleDateString('en-US', opts);
-    } else {
-        dateStr = timeInZone.toISOString().split('T')[0];
+    if (app.settings.clockFormat == 12) {
+        clockOptions.hour12 = true;
     }
-    document.querySelector('.clock-date').textContent = dateStr;
+    
+    const dateFormat = app.settings.clockDateFormat || 'ko';
+    let dateString = '';
+    
+    switch(dateFormat) {
+        case 'ko':
+            dateString = now.toLocaleDateString('ko-KR', { timeZone: timezone, year: 'numeric', month: 'long', day: 'numeric' });
+            break;
+        case 'en':
+            dateString = now.toLocaleDateString('en-US', { timeZone: timezone, month: 'short', day: 'numeric', year: 'numeric' });
+            break;
+        case 'iso':
+            dateString = now.toLocaleDateString('sv-SE', { timeZone: timezone });
+            break;
+    }
+    
+    document.querySelector('.clock-time').textContent = now.toLocaleTimeString('ko-KR', clockOptions);
+    document.querySelector('.clock-date').textContent = dateString;
 }
 
-function openClockDetailModal(app) {
-    document.getElementById('clockModal').classList.add('active');
-    updateClockDetail(app);
-    // 1초마다 업데이트
-    if (app.clockDetailInterval) clearInterval(app.clockDetailInterval);
-    app.clockDetailInterval = setInterval(() => updateClockDetail(app), 1000);
-}
-
-function updateClockDetail(app) {
-    const { clockFormat, clockDateFormat, clockTimezone } = app.settings;
+function openClockModal(app) {
+    // 상세 시계 모달 표시 (여기서는 간단하게 표시)
     const now = new Date();
-    const options = { timeZone: clockTimezone || 'Asia/Seoul' };
-    const timeInZone = new Date(now.toLocaleString('en-US', options));
+    const timezone = app.settings.clockTimezone || 'Asia/Seoul';
     
-    let hours = timeInZone.getHours();
-    const minutes = timeInZone.getMinutes().toString().padStart(2, '0');
-    const seconds = timeInZone.getSeconds().toString().padStart(2, '0');
+    const dateString = now.toLocaleDateString('ko-KR', { timeZone: timezone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeString = now.toLocaleTimeString('ko-KR', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
-    if (clockFormat === 12) {
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
-        document.getElementById('clockDetailTime').textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
-    } else {
-        const hoursStr = hours.toString().padStart(2, '0');
-        document.getElementById('clockDetailTime').textContent = `${hoursStr}:${minutes}:${seconds}`;
-    }
-    
-    let dateStr;
-    if (clockDateFormat === 'ko') {
-        const opts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: clockTimezone || 'Asia/Seoul' };
-        dateStr = timeInZone.toLocaleDateString('ko-KR', opts);
-    } else if (clockDateFormat === 'en') {
-        const opts = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'long', timeZone: clockTimezone || 'Asia/Seoul' };
-        dateStr = timeInZone.toLocaleDateString('en-US', opts);
-    } else {
-        dateStr = timeInZone.toISOString().split('T')[0];
-    }
-    document.getElementById('clockDetailDate').textContent = dateStr;
-    document.getElementById('clockDetailTimezone').textContent = clockTimezone || 'Asia/Seoul';
-}
-
-// Currency Widget
-function initCurrencyWidget(app) {
-    loadCurrencyData(app);
-    setInterval(() => loadCurrencyData(app), 3600000); // 1시간마다
-    
-    document.getElementById('currencyWidget').addEventListener('click', () => {
-        openCurrencyDetailModal(app);
-    });
-}
-
-async function loadCurrencyData(app) {
-    try {
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
-        const data = await response.json();
-        
-        const usdRate = (1 / data.rates.USD).toFixed(2);
-        const jpyRate = (100 / data.rates.JPY).toFixed(2);
-        
-        const currencyItems = document.querySelectorAll('.currency-item');
-        if (currencyItems[0]) currencyItems[0].querySelector('.currency-value').textContent = `₩${formatNumber(usdRate)}`;
-        if (currencyItems[1]) currencyItems[1].querySelector('.currency-value').textContent = `₩${formatNumber(jpyRate)}`;
-    } catch (error) {
-        console.error('Currency fetch error:', error);
-    }
-}
-
-async function openCurrencyDetailModal(app) {
-    document.getElementById('currencyModal').classList.add('active');
-    
-    try {
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/KRW');
-        const data = await response.json();
-        
-        const container = document.getElementById('currencyDetailBody');
-        container.innerHTML = '';
-        
-        const currencies = [
-            { code: 'USD', name: '미국 달러', rate: 1 / data.rates.USD },
-            { code: 'EUR', name: '유로', rate: 1 / data.rates.EUR },
-            { code: 'JPY', name: '일본 엔 (100)', rate: 100 / data.rates.JPY },
-            { code: 'CNY', name: '중국 위안', rate: 1 / data.rates.CNY },
-            { code: 'GBP', name: '영국 파운드', rate: 1 / data.rates.GBP }
-        ];
-        
-        currencies.forEach(curr => {
-            const item = document.createElement('div');
-            item.className = 'weather-detail-item';
-            item.innerHTML = `
-                <i class="fas fa-money-bill-wave"></i>
-                <div>
-                    <div class="detail-label">${curr.code} - ${curr.name}</div>
-                    <div class="detail-value">₩${formatNumber(curr.rate)}</div>
-                </div>
-            `;
-            container.appendChild(item);
-        });
-    } catch (error) {
-        console.error('Currency detail error:', error);
-    }
+    alert(`⏰ 현재 시간\n\n${dateString}\n${timeString}\n\n시간대: ${timezone}`);
 }
 
 // Stock Widget
-function initStockWidget(app) {
-    loadStockData(app);
-    setInterval(() => loadStockData(app), 60000); // 1분마다
+async function initStockWidget(app) {
+    await updateStockData(app);
+    setInterval(() => updateStockData(app), 60000); // 1분마다
     
-    document.getElementById('stockWidget').addEventListener('click', () => {
-        openStockDetailModal(app);
-    });
-}
-
-async function loadStockData(app) {
-    try {
-        const container = document.getElementById('stockWidget');
-        container.innerHTML = '<button class="widget-settings-btn" id="stockSettingsBtn" title="주식 설정"><i class="fas fa-cog"></i></button>';
-        
-        // KOSPI/KOSDAQ 더미 데이터
-        if (app.settings.stockKOSPI !== false) {
-            const kospi = 2500 + Math.random() * 100;
-            const div = document.createElement('div');
-            div.className = 'stock-item';
-            div.innerHTML = `
-                <span class="stock-label">KOSPI</span>
-                <span class="stock-value">${kospi.toFixed(2)}</span>
-            `;
-            container.appendChild(div);
+    document.getElementById('stockWidget').addEventListener('click', (e) => {
+        if (!e.target.closest('.widget-settings-btn')) {
+            openStockModal(app);
         }
-        
-        // 커스텀 종목들
-        (app.settings.stockSymbols || []).forEach(symbol => {
-            const value = 50000 + Math.random() * 100000;
-            const div = document.createElement('div');
-            div.className = 'stock-item';
-            div.innerHTML = `
-                <span class="stock-label">${symbol.name || symbol.code}</span>
-                <span class="stock-value">${value.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}</span>
-            `;
-            container.appendChild(div);
-        });
-        
-        // 설정 버튼 이벤트 다시 연결
-        document.getElementById('stockSettingsBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            app.openStockSettingsModal();
-        });
-    } catch (error) {
-        console.error('Stock fetch error:', error);
-    }
+    });
 }
 
-function openStockDetailModal(app) {
-    document.getElementById('stockModal').classList.add('active');
-    const container = document.getElementById('stockDetailBody');
-    container.innerHTML = '';
+async function updateStockData(app) {
+    const stockWidget = document.getElementById('stockWidget');
+    if (!stockWidget) return;
     
-    const indices = [
-        { label: 'KOSPI', value: 2500 + Math.random() * 100 },
-        { label: 'KOSDAQ', value: 800 + Math.random() * 50 }
-    ];
+    const indices = [];
+    if (app.settings.stockKOSPI) indices.push({ name: 'KOSPI', value: '--', change: '--' });
+    if (app.settings.stockKOSDAQ) indices.push({ name: 'KOSDAQ', value: '--', change: '--' });
+    if (app.settings.stockSP500) indices.push({ name: 'S&P 500', value: '--', change: '--' });
+    if (app.settings.stockNASDAQ) indices.push({ name: 'NASDAQ', value: '--', change: '--' });
     
-    indices.forEach(idx => {
-        const change = (Math.random() - 0.5) * 2;
-        const item = document.createElement('div');
-        item.className = 'weather-detail-item';
-        item.innerHTML = `
-            <i class="fas fa-chart-line"></i>
-            <div>
-                <div class="detail-label">${idx.label}</div>
-                <div class="detail-value">${idx.value.toFixed(2)} <span style="color: ${change > 0 ? '#ef4444' : '#3b82f6'}">(${change > 0 ? '+' : ''}${change.toFixed(2)}%)</span></div>
-            </div>
-        `;
-        container.appendChild(item);
+    // API 연동 시 여기서 데이터 로드
+    // 현재는 placeholder만 표시
+    
+    const html = `
+        <div class="stock-list">
+            ${indices.map(idx => `
+                <div class="stock-item">
+                    <span class="stock-name">${idx.name}</span>
+                    <span class="stock-value">${idx.value}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    stockWidget.innerHTML = `
+        <button class="widget-settings-btn" id="stockSettingsBtn" title="주식 설정">
+            <i class="fas fa-cog"></i>
+        </button>
+        ${html}
+    `;
+}
+
+function openStockModal(app) {
+    alert('주식 상세 정보는 개발 중입니다.');
+}
+
+// Currency Widget
+async function initCurrencyWidget(app) {
+    await updateCurrencyData(app);
+    setInterval(() => updateCurrencyData(app), 300000); // 5분마다
+    
+    document.getElementById('currencyWidget').addEventListener('click', (e) => {
+        if (!e.target.closest('.widget-settings-btn')) {
+            openCurrencyModal(app);
+        }
     });
+}
+
+async function updateCurrencyData(app) {
+    const currencyWidget = document.getElementById('currencyWidget');
+    if (!currencyWidget) return;
     
-    (app.settings.stockSymbols || []).forEach(symbol => {
-        const value = 50000 + Math.random() * 100000;
-        const change = (Math.random() - 0.5) * 10;
-        const item = document.createElement('div');
-        item.className = 'weather-detail-item';
-        item.innerHTML = `
-            <i class="fas fa-chart-bar"></i>
-            <div>
-                <div class="detail-label">${symbol.name} (${symbol.code})</div>
-                <div class="detail-value">₩${value.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} <span style="color: ${change > 0 ? '#ef4444' : '#3b82f6'}">(${change > 0 ? '+' : ''}${change.toFixed(2)}%)</span></div>
-            </div>
-        `;
-        container.appendChild(item);
-    });
+    const currencies = [];
+    if (app.settings.currencyUSD) currencies.push({ code: 'USD', name: '달러', value: '--' });
+    if (app.settings.currencyEUR) currencies.push({ code: 'EUR', name: '유로', value: '--' });
+    if (app.settings.currencyJPY) currencies.push({ code: 'JPY', name: '엔화', value: '--' });
+    if (app.settings.currencyCNY) currencies.push({ code: 'CNY', name: '위안', value: '--' });
+    
+    // API 연동 시 여기서 데이터 로드
+    // 현재는 placeholder만 표시
+    
+    const html = `
+        <div class="currency-list">
+            ${currencies.map(cur => `
+                <div class="currency-item">
+                    <span class="currency-name">${cur.code}</span>
+                    <span class="currency-value">${cur.value}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    currencyWidget.innerHTML = `
+        <button class="widget-settings-btn" id="currencySettingsBtn" title="환율 설정">
+            <i class="fas fa-cog"></i>
+        </button>
+        ${html}
+    `;
+}
+
+function openCurrencyModal(app) {
+    alert('환율 상세 정보는 개발 중입니다.');
 }
 
 // Search Widget
 function initSearchWidget(app) {
-    const select = document.getElementById('searchEngineSelect');
-    const input = document.getElementById('globalSearchInput');
-    const btn = document.getElementById('globalSearchBtn');
-    const favicon = document.getElementById('searchEngineFavicon');
+    const searchWidget = document.getElementById('searchWidget');
+    if (!searchWidget) return;
     
-    updateSearchEngineSelect(app);
+    const engines = Object.keys(app.settings.searchEngines || {});
+    const defaultEngine = app.settings.defaultSearchEngine || 'google';
     
-    const updateFavicon = () => {
-        const currentEngine = select.value;
-        const engineData = app.settings.searchEngines[currentEngine];
-        if (engineData && engineData.icon) {
-            favicon.src = engineData.icon;
-        }
-    };
-    updateFavicon();
-    
-    const performSearch = () => {
-        const query = input.value.trim();
-        if (!query) return;
-        
-        const currentEngine = select.value;
-        const engineData = app.settings.searchEngines[currentEngine];
-        if (engineData) {
-            const searchUrl = engineData.url || engineData;
-            window.open(searchUrl + encodeURIComponent(query), '_blank');
-            input.value = '';
-        }
-    };
-    
-    btn.addEventListener('click', performSearch);
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
-    
-    select.addEventListener('change', () => {
-        app.settings.defaultSearchEngine = select.value;
-        app.saveSettings();
-        updateFavicon();
-    });
-}
-
-function updateSearchEngineSelect(app) {
-    const select = document.getElementById('searchEngineSelect');
-    const favicon = document.getElementById('searchEngineFavicon');
-    select.innerHTML = '';
-    
-    Object.keys(app.settings.searchEngines).forEach(key => {
-        const engine = app.settings.searchEngines[key];
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
-        if (engine.icon) {
-            option.dataset.icon = engine.icon;
-        }
-        select.appendChild(option);
-    });
-    
-    select.value = app.settings.defaultSearchEngine || 'google';
-    
-    // Update favicon immediately
-    const currentEngine = app.settings.searchEngines[select.value];
-    if (currentEngine && currentEngine.icon && favicon) {
-        favicon.src = currentEngine.icon;
-    }
+    console.log('🔍 검색 위젯 초기화:', { engines: engines.length, default: defaultEngine });
 }

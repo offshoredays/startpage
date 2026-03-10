@@ -33,12 +33,18 @@ class BookmarkApp {
             footerWidgetSize: 1,
             currencyWidgetSize: 1,
             stockWidgetSize: 1,
-            // Weather
-            weatherCity: 'Ulsan',
-            weatherApiKey: 'a88bc08194a466a6c8681b5bea96e68b',
-            weatherUnit: 'metric',
-            surfingApiKey: '', // 서핑지수 API 키
-            surfingObsCode: 'TW_0062', // 울산 관측소 코드
+            // Weather (서핑지수 API)
+            surfingApiKey: '', // 공공데이터 포털 API 키
+            surfingBeachNum: '102', // 해수욕장 번호 (102: 울산, 103: 부산, 201: 강릉)
+            // 표시할 정보 선택
+            showTemp: true,           // 기온
+            showWaterTemp: true,      // 수온
+            showWave: true,           // 파도 높이
+            showWaveDir: false,       // 파도 방향
+            showWavePeriod: false,    // 파도 주기
+            showWind: true,           // 풍속
+            showWindDir: false,       // 바람 방향
+            showWaveCond: true,       // 파도 상태
             // Clock
             clockFormat: 24,
             clockShowSeconds: false,
@@ -1098,9 +1104,21 @@ class BookmarkApp {
 
     // Widget Settings Methods
     openWeatherSettingsModal() {
-        document.getElementById('weatherCity').value = this.settings.weatherCity || 'Ulsan';
-        document.getElementById('weatherApiKey').value = this.settings.weatherApiKey || '';
-        document.getElementById('weatherUnit').value = this.settings.weatherUnit || 'metric';
+        // 🏄 서핑 API 설정
+        document.getElementById('surfingApiKey').value = this.settings.surfingApiKey || '';
+        document.getElementById('surfingBeachNum').value = this.settings.surfingBeachNum || '102';
+        
+        // 표시 정보 체크박스 설정
+        document.getElementById('showTemp').checked = this.settings.showTemp !== false;
+        document.getElementById('showWaterTemp').checked = this.settings.showWaterTemp !== false;
+        document.getElementById('showWave').checked = this.settings.showWave !== false;
+        document.getElementById('showWaveDir').checked = this.settings.showWaveDir || false;
+        document.getElementById('showWavePeriod').checked = this.settings.showWavePeriod || false;
+        document.getElementById('showWind').checked = this.settings.showWind !== false;
+        document.getElementById('showWindDir').checked = this.settings.showWindDir || false;
+        document.getElementById('showWaveCond').checked = this.settings.showWaveCond !== false;
+        
+        // 위젯 크기
         document.getElementById('weatherWidgetSize').value = (this.settings.weatherWidgetSize || 1) * 100;
         document.getElementById('weatherWidgetSizeValue').textContent = Math.round((this.settings.weatherWidgetSize || 1) * 100);
         
@@ -1118,15 +1136,44 @@ class BookmarkApp {
     }
 
     saveWeatherSettings() {
-        this.settings.weatherCity = document.getElementById('weatherCity').value.trim() || 'Ulsan';
-        this.settings.weatherApiKey = document.getElementById('weatherApiKey').value.trim();
-        this.settings.weatherUnit = document.getElementById('weatherUnit').value;
+        // 🏄 서핑 API 설정 저장
+        this.settings.surfingApiKey = document.getElementById('surfingApiKey').value.trim();
+        this.settings.surfingBeachNum = document.getElementById('surfingBeachNum').value;
+        
+        // 표시 정보 체크박스 저장
+        this.settings.showTemp = document.getElementById('showTemp').checked;
+        this.settings.showWaterTemp = document.getElementById('showWaterTemp').checked;
+        this.settings.showWave = document.getElementById('showWave').checked;
+        this.settings.showWaveDir = document.getElementById('showWaveDir').checked;
+        this.settings.showWavePeriod = document.getElementById('showWavePeriod').checked;
+        this.settings.showWind = document.getElementById('showWind').checked;
+        this.settings.showWindDir = document.getElementById('showWindDir').checked;
+        this.settings.showWaveCond = document.getElementById('showWaveCond').checked;
+        
+        // 위젯 크기
         this.settings.weatherWidgetSize = parseInt(document.getElementById('weatherWidgetSize').value) / 100;
+        
+        console.log('💾 날씨 설정 저장:', {
+            apiKey: this.settings.surfingApiKey ? '✅ 설정됨' : '❌ 없음',
+            beach: this.settings.surfingBeachNum,
+            display: {
+                temp: this.settings.showTemp,
+                waterTemp: this.settings.showWaterTemp,
+                wave: this.settings.showWave,
+                waveDir: this.settings.showWaveDir,
+                wavePeriod: this.settings.showWavePeriod,
+                wind: this.settings.showWind,
+                windDir: this.settings.showWindDir,
+                waveCond: this.settings.showWaveCond
+            }
+        });
         
         this.saveSettings();
         applyWidgetSizes(this);
         this.closeWeatherSettingsModal();
-        loadWeatherData(this);
+        
+        // 🔄 위젯 새로고침
+        initWeatherWidget(this);
     }
 
     openClockSettingsModal() {
