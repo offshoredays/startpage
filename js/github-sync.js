@@ -289,11 +289,18 @@ class GitHubSync {
                 const localTime = new Date(localTimestamp).getTime();
                 const cloudTime = new Date(cloudTimestamp).getTime();
 
+                console.log('⏰ 타임스탬프 비교:', {
+                    local: localTimestamp,
+                    cloud: cloudTimestamp,
+                    localNewer: localTime > cloudTime
+                });
+
+                // ⚠️ 로컬이 최신이더라도, 클라우드 데이터를 먼저 확인
+                // (다른 기기에서 추가한 데이터가 있을 수 있음)
                 if (localTime > cloudTime) {
-                    console.log('⚠️ Local data is newer than cloud data!');
-                    console.log('🔄 Pushing local data to cloud instead...');
-                    await this.pushData();
-                    return;
+                    console.log('⚠️ Local data is newer, but checking cloud for changes...');
+                    // 클라우드 데이터도 적용한 후, 병합된 데이터를 다시 push
+                    // (현재는 클라우드 데이터를 가져오고, 나중에 자동 동기화에서 push)
                 }
             }
 
@@ -440,11 +447,20 @@ class GitHubSync {
             clearInterval(this.syncInterval);
         }
 
-        this.syncInterval = setInterval(() => {
+        this.syncInterval = setInterval(async () => {
             if (this.isConfigured()) {
-                this.pushData();
+                console.log('🔄 자동 동기화 시작...');
+                try {
+                    // 1️⃣ 클라우드에서 먼저 확인
+                    await this.pullData(false); // 강제 덮어쓰기 안 함, 타임스탬프 비교
+                    console.log('✅ 자동 동기화 완료 (Pull)');
+                } catch (error) {
+                    console.error('❌ 자동 동기화 실패:', error);
+                }
             }
         }, intervalMinutes * 60 * 1000);
+        
+        console.log(`🔄 자동 동기화 시작됨: ${intervalMinutes}분마다 클라우드에서 가져오기`);
     }
 
     stopAutoSync() {
