@@ -660,15 +660,17 @@ body {
 }
 
 .categories-wrapper {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    align-items: start; /* 각 카드를 위쪽 정렬 */
+    column-count: 2; /* 2컬럼 Masonry 레이아웃 */
+    column-gap: 16px;
+    padding-bottom: 16px;
 }
 
 /* Category Card */
 .category-card {
     position: relative;
+    break-inside: avoid; /* Masonry: 카드가 컬럼 중간에 잘리지 않게 */
+    page-break-inside: avoid;
+    margin-bottom: 16px; /* 카드 사이 간격 */
     background-color: var(--category-bg, var(--bg-secondary));
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -684,50 +686,8 @@ body {
     transform: translateY(-2px);
 }
 
-/* 🔥 Sortable.js 드래그 스타일 */
-.sortable-ghost {
+.category-card.dragging {
     opacity: 0.4;
-    background: rgba(59, 130, 246, 0.1) !important;
-    border: 2px dashed var(--primary) !important;
-}
-
-.sortable-chosen {
-    cursor: grabbing !important;
-}
-
-.sortable-drag {
-    opacity: 1 !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
-    transform: rotate(3deg) !important;
-}
-
-/* 드래그 중 삽입 위치 표시 */
-.category-card.sortable-ghost::before {
-    content: '여기에 놓기 ▼';
-    position: absolute;
-    top: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--primary);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    z-index: 1000;
-    animation: bounceIn 0.3s ease;
-}
-
-@keyframes bounceIn {
-    0% {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-10px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
 }
 
 /* 다크모드에서 카테고리 카드 텍스트 색상 강제 적용 */
