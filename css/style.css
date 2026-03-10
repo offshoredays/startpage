@@ -663,14 +663,11 @@ body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    grid-auto-rows: minmax(auto, auto); /* 자동 높이 */
-    align-items: start; /* 위쪽 정렬 */
+    align-items: start; /* 각 카드를 위쪽 정렬 */
 }
 
 /* Category Card */
 .category-card {
-    height: fit-content; /* 내용에 맞춰 높이 조절 */
-    margin-bottom: 0; /* Grid gap으로 간격 조절 */
     background-color: var(--category-bg, var(--bg-secondary));
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -686,9 +683,26 @@ body {
     transform: translateY(-2px);
 }
 
+.category-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.category-card.drag-over-top {
+    border-top: 3px solid var(--primary);
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.category-card.drag-over-bottom {
+    border-bottom: 3px solid var(--primary);
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
 .category-card.drag-over {
     background-color: rgba(59, 130, 246, 0.1);
     border: 2px dashed var(--primary);
+    transform: scale(1.02);
+}
     transform: scale(1.02);
 }
 
