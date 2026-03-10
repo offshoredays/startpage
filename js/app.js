@@ -964,42 +964,63 @@ class BookmarkApp {
     setupDragAndDrop() {
         // Category drag and drop
         const categoryCards = document.querySelectorAll('.category-card');
+        let draggedElement = null;
         
         categoryCards.forEach(card => {
             card.addEventListener('dragstart', (e) => {
+                draggedElement = card;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('categoryId', card.dataset.categoryId);
                 card.classList.add('dragging');
+                setTimeout(() => {
+                    card.style.opacity = '0.5';
+                }, 0);
             });
             
-            card.addEventListener('dragend', () => {
+            card.addEventListener('dragend', (e) => {
                 card.classList.remove('dragging');
+                card.style.opacity = '1';
+                draggedElement = null;
                 // Remove all drag-over effects
-                document.querySelectorAll('.category-card').forEach(c => c.classList.remove('drag-over'));
+                document.querySelectorAll('.category-card').forEach(c => {
+                    c.classList.remove('drag-over');
+                    c.classList.remove('drag-over-top');
+                    c.classList.remove('drag-over-bottom');
+                });
             });
             
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 
-                // Add visual feedback
-                const draggedId = e.dataTransfer.types.includes('categoryid') ? 
-                    e.dataTransfer.getData('categoryId') : null;
-                if (draggedId && draggedId !== card.dataset.categoryId) {
-                    card.classList.add('drag-over');
+                if (draggedElement && draggedElement !== card) {
+                    // Calculate mouse position relative to card
+                    const rect = card.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const cardMiddle = rect.top + rect.height / 2;
+                    
+                    // Remove all previous classes
+                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                    
+                    // Add class based on position
+                    if (mouseY < cardMiddle) {
+                        card.classList.add('drag-over-top');
+                    } else {
+                        card.classList.add('drag-over-bottom');
+                    }
                 }
             });
             
             card.addEventListener('dragleave', (e) => {
-                // Only remove if leaving the card itself (not children)
-                if (e.target === card) {
-                    card.classList.remove('drag-over');
+                // Only remove if actually leaving (not entering child)
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drag-over-top', 'drag-over-bottom');
                 }
             });
             
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
-                card.classList.remove('drag-over');
+                card.classList.remove('drag-over-top', 'drag-over-bottom');
                 
                 const draggedId = e.dataTransfer.getData('categoryId');
                 const targetId = card.dataset.categoryId;
@@ -1008,8 +1029,27 @@ class BookmarkApp {
                     const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
                     const targetIndex = this.categories.findIndex(c => c.id === targetId);
                     
+                    // Determine insert position based on mouse
+                    const rect = card.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const cardMiddle = rect.top + rect.height / 2;
+                    const insertBefore = mouseY < cardMiddle;
+                    
+                    // Remove dragged item
                     const [removed] = this.categories.splice(draggedIndex, 1);
-                    this.categories.splice(targetIndex, 0, removed);
+                    
+                    // Calculate new index
+                    let newIndex = targetIndex;
+                    if (draggedIndex < targetIndex) {
+                        // Moving forward
+                        newIndex = insertBefore ? targetIndex - 1 : targetIndex;
+                    } else {
+                        // Moving backward
+                        newIndex = insertBefore ? targetIndex : targetIndex + 1;
+                    }
+                    
+                    // Insert at new position
+                    this.categories.splice(newIndex, 0, removed);
                     
                     this.saveData();
                     this.render();
