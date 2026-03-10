@@ -473,21 +473,34 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="weatherCity">도시명</label>
-                    <input type="text" id="weatherCity" placeholder="Ulsan" class="form-input">
-                    <small>날씨를 표시할 도시 이름 (영문)</small>
+                    <label for="surfingApiKey">🏄 공공데이터 포털 API 키</label>
+                    <input type="password" id="surfingApiKey" placeholder="일반 인증키 (Encoding)" class="form-input">
+                    <small>
+                        <a href="https://www.data.go.kr/data/15142490/openapi.do" target="_blank">API 키 발급</a> 
+                        → 활용신청 → 마이페이지 → 일반 인증키 복사
+                    </small>
                 </div>
                 <div class="form-group">
-                    <label for="weatherApiKey">OpenWeatherMap API Key</label>
-                    <input type="text" id="weatherApiKey" placeholder="API Key" class="form-input">
-                    <small>OpenWeatherMap API 키 · <a href="https://openweathermap.org/api" target="_blank">무료 발급</a></small>
-                </div>
-                <div class="form-group">
-                    <label for="weatherUnit">온도 단위</label>
-                    <select id="weatherUnit" class="form-input">
-                        <option value="metric">섭씨 (°C)</option>
-                        <option value="imperial">화씨 (°F)</option>
+                    <label for="surfingBeachNum">해수욕장 선택</label>
+                    <select id="surfingBeachNum" class="form-input">
+                        <option value="102">울산 일산해수욕장</option>
+                        <option value="103">부산 해운대</option>
+                        <option value="201">강릉 경포대</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>표시할 정보 선택</label>
+                    <small>위젯에 표시할 정보를 선택하세요</small>
+                    <div style="margin-top: 8px;">
+                        <label><input type="checkbox" id="showTemp" checked> 기온</label><br>
+                        <label><input type="checkbox" id="showWaterTemp" checked> 수온</label><br>
+                        <label><input type="checkbox" id="showWave" checked> 파도 높이</label><br>
+                        <label><input type="checkbox" id="showWaveDir"> 파도 방향</label><br>
+                        <label><input type="checkbox" id="showWavePeriod"> 파도 주기</label><br>
+                        <label><input type="checkbox" id="showWind" checked> 풍속</label><br>
+                        <label><input type="checkbox" id="showWindDir"> 바람 방향</label><br>
+                        <label><input type="checkbox" id="showWaveCond" checked> 파도 상태</label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="weatherWidgetSize">위젯 크기: <span id="weatherWidgetSizeValue">100</span>%</label>
