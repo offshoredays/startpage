@@ -962,112 +962,45 @@ class BookmarkApp {
     }
 
     setupDragAndDrop() {
-        // Category drag and drop
-        const categoryCards = document.querySelectorAll('.category-card');
-        let draggedElement = null;
+        // 🔥 Sortable.js를 사용한 완벽한 드래그 앤 드롭
+        const wrapper = document.getElementById('categoriesWrapper');
+        if (!wrapper) return;
         
-        categoryCards.forEach(card => {
-            card.addEventListener('dragstart', (e) => {
-                draggedElement = card;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('categoryId', card.dataset.categoryId);
-                card.classList.add('dragging');
-                
-                console.log('🎯 드래그 시작:', card.querySelector('h2')?.textContent);
-            });
+        // Sortable 인스턴스 생성
+        Sortable.create(wrapper, {
+            animation: 300, // 부드러운 애니메이션 (300ms)
+            handle: '.category-card', // 카테고리 카드 전체를 드래그 핸들로
+            draggable: '.category-card', // 드래그 가능한 요소
+            ghostClass: 'sortable-ghost', // 드래그 중인 요소 클래스
+            chosenClass: 'sortable-chosen', // 선택된 요소 클래스
+            dragClass: 'sortable-drag', // 드래그 시작 시 클래스
             
-            card.addEventListener('dragend', (e) => {
-                card.classList.remove('dragging');
-                draggedElement = null;
-                
-                // Remove all drag-over effects
-                document.querySelectorAll('.category-card').forEach(c => {
-                    c.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
-                });
-                
-                console.log('✅ 드래그 종료');
-            });
+            // 드래그 시작
+            onStart: (evt) => {
+                console.log('🎯 드래그 시작:', evt.item.querySelector('h2')?.textContent);
+            },
             
-            card.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
+            // 드래그 종료
+            onEnd: (evt) => {
+                const oldIndex = evt.oldIndex;
+                const newIndex = evt.newIndex;
                 
-                if (draggedElement && draggedElement !== card) {
-                    // Calculate mouse position relative to card
-                    const rect = card.getBoundingClientRect();
-                    const mouseY = e.clientY;
-                    const cardMiddle = rect.top + rect.height / 2;
+                if (oldIndex !== newIndex) {
+                    // 배열에서 순서 변경
+                    const [moved] = this.categories.splice(oldIndex, 1);
+                    this.categories.splice(newIndex, 0, moved);
                     
-                    // Remove all previous classes from all cards
-                    document.querySelectorAll('.category-card').forEach(c => {
-                        c.classList.remove('drop-target-before', 'drop-target-after');
+                    console.log('📍 이동:', {
+                        from: moved.name,
+                        oldIndex: oldIndex + 1,
+                        newIndex: newIndex + 1
                     });
-                    
-                    // Add class based on position
-                    if (mouseY < cardMiddle) {
-                        card.classList.add('drop-target-before');
-                        card.classList.remove('drop-target-after');
-                    } else {
-                        card.classList.add('drop-target-after');
-                        card.classList.remove('drop-target-before');
-                    }
-                    
-                    card.classList.add('drag-over');
-                }
-            });
-            
-            card.addEventListener('dragleave', (e) => {
-                // Only remove if actually leaving (not entering child)
-                if (!card.contains(e.relatedTarget)) {
-                    card.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
-                }
-            });
-            
-            card.addEventListener('drop', (e) => {
-                e.preventDefault();
-                card.classList.remove('drag-over', 'drop-target-before', 'drop-target-after');
-                
-                const draggedId = e.dataTransfer.getData('categoryId');
-                const targetId = card.dataset.categoryId;
-                
-                if (draggedId !== targetId) {
-                    const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
-                    const targetIndex = this.categories.findIndex(c => c.id === targetId);
-                    
-                    // Determine insert position based on mouse
-                    const rect = card.getBoundingClientRect();
-                    const mouseY = e.clientY;
-                    const cardMiddle = rect.top + rect.height / 2;
-                    const insertBefore = mouseY < cardMiddle;
-                    
-                    console.log('📍 드롭 위치:', {
-                        from: this.categories[draggedIndex].name,
-                        to: this.categories[targetIndex].name,
-                        position: insertBefore ? '위' : '아래'
-                    });
-                    
-                    // Remove dragged item
-                    const [removed] = this.categories.splice(draggedIndex, 1);
-                    
-                    // Calculate new index
-                    let newIndex = targetIndex;
-                    if (draggedIndex < targetIndex) {
-                        // Moving forward
-                        newIndex = insertBefore ? targetIndex - 1 : targetIndex;
-                    } else {
-                        // Moving backward
-                        newIndex = insertBefore ? targetIndex : targetIndex + 1;
-                    }
-                    
-                    // Insert at new position
-                    this.categories.splice(newIndex, 0, removed);
-                    
                     console.log('✅ 새 순서:', this.categories.map(c => c.name).join(' → '));
                     
+                    // 저장
                     this.saveData();
-                    this.render();
                 }
-            });
+            }
         });
         
         // Bookmark drag and drop
