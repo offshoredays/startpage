@@ -962,45 +962,41 @@ class BookmarkApp {
     }
 
     setupDragAndDrop() {
-        // 🔥 Sortable.js를 사용한 완벽한 드래그 앤 드롭
-        const wrapper = document.getElementById('categoriesWrapper');
-        if (!wrapper) return;
+        // Category drag and drop (Column 레이아웃용)
+        const categoryCards = document.querySelectorAll('.category-card');
         
-        // Sortable 인스턴스 생성
-        Sortable.create(wrapper, {
-            animation: 300, // 부드러운 애니메이션 (300ms)
-            handle: '.category-card', // 카테고리 카드 전체를 드래그 핸들로
-            draggable: '.category-card', // 드래그 가능한 요소
-            ghostClass: 'sortable-ghost', // 드래그 중인 요소 클래스
-            chosenClass: 'sortable-chosen', // 선택된 요소 클래스
-            dragClass: 'sortable-drag', // 드래그 시작 시 클래스
+        categoryCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('categoryId', card.dataset.categoryId);
+                card.classList.add('dragging');
+            });
             
-            // 드래그 시작
-            onStart: (evt) => {
-                console.log('🎯 드래그 시작:', evt.item.querySelector('h2')?.textContent);
-            },
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
             
-            // 드래그 종료
-            onEnd: (evt) => {
-                const oldIndex = evt.oldIndex;
-                const newIndex = evt.newIndex;
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('categoryId');
+                const targetId = card.dataset.categoryId;
                 
-                if (oldIndex !== newIndex) {
-                    // 배열에서 순서 변경
-                    const [moved] = this.categories.splice(oldIndex, 1);
-                    this.categories.splice(newIndex, 0, moved);
+                if (draggedId !== targetId) {
+                    const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
+                    const targetIndex = this.categories.findIndex(c => c.id === targetId);
                     
-                    console.log('📍 이동:', {
-                        from: moved.name,
-                        oldIndex: oldIndex + 1,
-                        newIndex: newIndex + 1
-                    });
-                    console.log('✅ 새 순서:', this.categories.map(c => c.name).join(' → '));
+                    const [removed] = this.categories.splice(draggedIndex, 1);
+                    this.categories.splice(targetIndex, 0, removed);
                     
-                    // 저장
                     this.saveData();
+                    this.render();
                 }
-            }
+            });
         });
         
         // Bookmark drag and drop
