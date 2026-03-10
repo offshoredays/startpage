@@ -668,6 +668,7 @@ body {
 
 /* Category Card */
 .category-card {
+    position: relative; /* ::before/::after를 위해 필요 */
     background-color: var(--category-bg, var(--bg-secondary));
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -684,26 +685,57 @@ body {
 }
 
 .category-card.dragging {
-    opacity: 0.5;
-    transform: scale(0.95);
-}
-
-.category-card.drag-over-top {
-    border-top: 3px solid var(--primary);
-    background-color: rgba(59, 130, 246, 0.05);
-}
-
-.category-card.drag-over-bottom {
-    border-bottom: 3px solid var(--primary);
-    background-color: rgba(59, 130, 246, 0.05);
-}
-
-.category-card.drag-over {
-    background-color: rgba(59, 130, 246, 0.1);
+    opacity: 0.4;
+    transform: scale(0.98);
     border: 2px dashed var(--primary);
-    transform: scale(1.02);
 }
-    transform: scale(1.02);
+
+/* 🔥 드롭 존 명확한 표시 (파란 선) */
+.category-card.drop-target-before::before {
+    content: '';
+    display: block;
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    top: -10px;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    border-radius: 2px;
+    z-index: 1000;
+    box-shadow: 0 0 8px var(--primary);
+    animation: dropZonePulse 0.6s ease-in-out infinite;
+}
+
+.category-card.drop-target-after::after {
+    content: '';
+    display: block;
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    bottom: -10px;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    border-radius: 2px;
+    z-index: 1000;
+    box-shadow: 0 0 8px var(--primary);
+    animation: dropZonePulse 0.6s ease-in-out infinite;
+}
+
+/* 드롭 존 펄스 애니메이션 */
+@keyframes dropZonePulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scaleX(0.95);
+    }
+}
+
+/* 드래그 오버 시 배경색 */
+.category-card.drag-over {
+    background-color: rgba(59, 130, 246, 0.08);
 }
 
 /* 다크모드에서 카테고리 카드 텍스트 색상 강제 적용 */
