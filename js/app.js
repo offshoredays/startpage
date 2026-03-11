@@ -1214,17 +1214,23 @@ class BookmarkApp {
         const listContainer = document.getElementById('searchEngineList');
         listContainer.innerHTML = '';
         
-        Object.entries(this.settings.searchEngines).forEach(([key, engineData]) => {
+        Object.entries(this.settings.searchEngines || {}).forEach(([key, engineData]) => {
             const url = engineData.url || engineData;
             const icon = engineData.icon || '';
             
             const item = document.createElement('div');
             item.className = 'search-engine-item';
+            item.style.display = 'grid';
+            item.style.gridTemplateColumns = '1fr 2fr 2fr auto';
+            item.style.gap = '8px';
+            item.style.marginBottom = '8px';
+            item.style.alignItems = 'center';
+            
             item.innerHTML = `
-                <input type="text" value="${key}" placeholder="엔진 이름 (예: google)" data-key="${key}">
-                <input type="text" value="${url}" placeholder="검색 URL (예: https://www.google.com/search?q=)" data-url="${key}">
-                <input type="text" value="${icon}" placeholder="파비콘 URL (선택)" data-icon="${key}">
-                <button class="remove-search-engine" data-remove="${key}">삭제</button>
+                <input type="text" class="form-input" value="${key}" placeholder="google" data-key="${key}" style="padding: 8px;">
+                <input type="text" class="form-input" value="${url}" placeholder="https://www.google.com/search?q=" data-url="${key}" style="padding: 8px;">
+                <input type="text" class="form-input" value="${icon}" placeholder="https://www.google.com/favicon.ico" data-icon="${key}" style="padding: 8px;">
+                <button class="btn-secondary remove-search-engine" data-remove="${key}" style="padding: 8px 12px;">삭제</button>
             `;
             listContainer.appendChild(item);
             
@@ -1243,6 +1249,11 @@ class BookmarkApp {
         newInput.addEventListener('input', (e) => sizeValue.textContent = e.target.value);
         
         document.getElementById('searchSettingsModal').classList.add('active');
+        
+        console.log('🔍 검색 설정 모달 열기:', {
+            count: Object.keys(this.settings.searchEngines || {}).length,
+            engines: Object.keys(this.settings.searchEngines || {}).join(', ')
+        });
     }
 
     closeSearchSettingsModal() {
@@ -1281,23 +1292,35 @@ class BookmarkApp {
 
     addSearchEngine() {
         const listContainer = document.getElementById('searchEngineList');
+        const newId = 'new_' + Date.now(); // 고유 ID 생성
+        
         const item = document.createElement('div');
         item.className = 'search-engine-item';
+        item.style.display = 'grid';
+        item.style.gridTemplateColumns = '1fr 2fr 2fr auto';
+        item.style.gap = '8px';
+        item.style.marginBottom = '8px';
+        item.style.alignItems = 'center';
+        
         item.innerHTML = `
-            <input type="text" value="" placeholder="엔진 이름 (예: google)" data-key="new">
-            <input type="text" value="" placeholder="검색 URL (예: https://www.google.com/search?q=)" data-url="new">
-            <input type="text" value="" placeholder="파비콘 URL (선택)" data-icon="new">
-            <button class="remove-search-engine">삭제</button>
+            <input type="text" class="form-input" placeholder="google" data-key="${newId}" style="padding: 8px;">
+            <input type="text" class="form-input" placeholder="https://www.google.com/search?q=" data-url="${newId}" style="padding: 8px;">
+            <input type="text" class="form-input" placeholder="https://www.google.com/favicon.ico" data-icon="${newId}" style="padding: 8px;">
+            <button class="btn-secondary remove-search-engine" style="padding: 8px 12px;">삭제</button>
         `;
         listContainer.appendChild(item);
         
         item.querySelector('.remove-search-engine').addEventListener('click', () => {
             item.remove();
         });
+        
+        console.log('➕ 검색 엔진 추가 폼 생성:', newId);
     }
 
     removeSearchEngine(key) {
+        console.log('🗑️ 검색 엔진 삭제:', key);
         delete this.settings.searchEngines[key];
+        this.saveSettings();
         this.openSearchSettingsModal();
     }
 
