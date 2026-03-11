@@ -1266,10 +1266,17 @@ class BookmarkApp {
         this.settings.searchEngines = newEngines;
         this.settings.searchWidgetSize = parseInt(document.getElementById('searchWidgetSize').value) / 100;
         
+        console.log('🔍 검색 엔진 저장:', {
+            count: Object.keys(newEngines).length,
+            engines: Object.keys(newEngines).join(', ')
+        });
+        
         this.saveSettings();
         applyWidgetSizes(this);
         this.closeSearchSettingsModal();
-        updateSearchEngineSelect(this);
+        
+        // 검색 위젯 재초기화
+        initSearchWidget(this);
     }
 
     addSearchEngine() {
