@@ -294,17 +294,101 @@ function openCurrencyModal(app) {
 
 // Search Widget
 function initSearchWidget(app) {
-    const engines = Object.keys(app.settings.searchEngines || {});
-    const defaultEngine = app.settings.defaultSearchEngine || 'google';
+    const searchEngineSelect = document.getElementById('searchEngineSelect');
+    const searchInput = document.getElementById('globalSearchInput');
+    const searchBtn = document.getElementById('globalSearchBtn');
+    const favicon = document.getElementById('searchEngineFavicon');
     
-    console.log('🔍 검색 위젯 초기화:', { 
-        engines: engines.length, 
-        default: defaultEngine,
-        list: engines.join(', ')
+    if (!searchEngineSelect || !searchInput || !searchBtn) {
+        console.error('❌ 검색 위젯 요소를 찾을 수 없습니다!');
+        return;
+    }
+    
+    // 검색 엔진 목록 업데이트
+    updateSearchEngineDropdown(app);
+    
+    // 검색 엔진 변경 이벤트
+    searchEngineSelect.addEventListener('change', (e) => {
+        const selectedEngine = e.target.value;
+        const option = e.target.options[e.target.selectedIndex];
+        const icon = option.getAttribute('data-icon');
+        
+        if (icon && favicon) {
+            favicon.src = icon;
+        }
+        
+        app.settings.defaultSearchEngine = selectedEngine;
+        app.saveSettings();
+        
+        console.log('🔍 검색 엔진 변경:', selectedEngine);
     });
     
-    // 검색 엔진 목록 표시
-    if (engines.length > 0) {
-        console.log('✅ 검색 엔진 복구 완료:', app.settings.searchEngines);
-    }
+    // 검색 버튼 클릭
+    searchBtn.addEventListener('click', () => {
+        performSearch(app, searchInput.value);
+    });
+    
+    // Enter 키로 검색
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearch(app, searchInput.value);
+        }
+    });
+    
+    console.log('🔍 검색 위젯 초기화 완료:', { 
+        engines: Object.keys(app.settings.searchEngines || {}).length, 
+        default: app.settings.defaultSearchEngine
+    });
 }
+
+function updateSearchEngineDropdown(app) {
+    const searchEngineSelect = document.getElementById('searchEngineSelect');
+    const favicon = document.getElementById('searchEngineFavicon');
+    
+    if (!searchEngineSelect) return;
+    
+    // 기존 옵션 모두 제거
+    searchEngineSelect.innerHTML = '';
+    
+    // 검색 엔진 목록 추가
+    const engines = app.settings.searchEngines || {};
+    Object.entries(engines).forEach(([key, engineData]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+        option.setAttribute('data-icon', engineData.icon || '');
+        searchEngineSelect.appendChild(option);
+    });
+    
+    // 기본 검색 엔진 선택
+    const defaultEngine = app.settings.defaultSearchEngine || 'google';
+    if (engines[defaultEngine]) {
+        searchEngineSelect.value = defaultEngine;
+        if (favicon && engines[defaultEngine].icon) {
+            favicon.src = engines[defaultEngine].icon;
+        }
+    }
+    
+    console.log('🔄 검색 엔진 드롭다운 업데이트:', Object.keys(engines).join(', '));
+}
+
+function performSearch(app, query) {
+    if (!query || !query.trim()) {
+        console.warn('⚠️ 검색어가 비어있습니다.');
+        return;
+    }
+    
+    const engineKey = app.settings.defaultSearchEngine || 'google';
+    const engine = app.settings.searchEngines[engineKey];
+    
+    if (!engine) {
+        console.error('❌ 검색 엔진을 찾을 수 없습니다:', engineKey);
+        return;
+    }
+    
+    const searchUrl = engine.url + encodeURIComponent(query.trim());
+    console.log('🔍 검색 실행:', { engine: engineKey, query: query.trim(), url: searchUrl });
+    
+    window.open(searchUrl, '_blank');
+}
+

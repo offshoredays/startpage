@@ -1286,8 +1286,10 @@ class BookmarkApp {
         applyWidgetSizes(this);
         this.closeSearchSettingsModal();
         
-        // 검색 위젯 재초기화
-        initSearchWidget(this);
+        // 검색 위젯 드롭다운 업데이트
+        updateSearchEngineDropdown(this);
+        
+        console.log('✅ 검색 엔진 저장 완료!');
     }
 
     addSearchEngine() {
