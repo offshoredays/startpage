@@ -812,6 +812,23 @@ body {
     transform: scale(0.95);
 }
 
+/* 드래그 앤 드롭 시각적 피드백 */
+.category-card.drag-over-category {
+    border: 2px dashed var(--primary-color);
+    background-color: var(--bg-hover);
+}
+
+.bookmarks-grid.drag-over-grid {
+    background-color: rgba(79, 70, 229, 0.05);
+    border: 2px dashed var(--primary-color);
+    border-radius: 8px;
+    min-height: 80px;
+}
+
+:root[data-theme="dark"] .bookmarks-grid.drag-over-grid {
+    background-color: rgba(79, 70, 229, 0.15);
+}
+
 .bookmark-card:hover {
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
