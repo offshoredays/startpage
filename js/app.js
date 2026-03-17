@@ -569,8 +569,8 @@ class BookmarkApp {
         const faviconUrl = this.getFaviconUrl(bookmark.url);
         
         return `
-            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}" onclick="app.openBookmark('${bookmark.url.replace(/'/g, "\\'")}')">
-                <div class="bookmark-content">
+            <div class="bookmark-card" draggable="true" data-bookmark-id="${bookmark.id}" data-category-id="${categoryId}">
+                <div class="bookmark-content" onclick="app.openBookmark('${bookmark.url.replace(/'/g, "\\'")}')">
                     <div class="bookmark-favicon">
                         <img src="${faviconUrl}" alt="${bookmark.title}" 
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><text y=%2218%22 font-size=%2220%22>🔖</text></svg>'">
@@ -973,34 +973,90 @@ class BookmarkApp {
         
         categoryCards.forEach(card => {
             card.addEventListener('dragstart', (e) => {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('categoryId', card.dataset.categoryId);
-                card.classList.add('dragging');
+                // 카테고리 헤더나 버튼을 드래그하는 경우만 카테고리 이동
+                if (e.target.classList.contains('category-card')) {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('categoryId', card.dataset.categoryId);
+                    card.classList.add('dragging');
+                }
             });
             
             card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
+                document.querySelectorAll('.drag-over-category').forEach(el => {
+                    el.classList.remove('drag-over-category');
+                });
+                document.querySelectorAll('.drag-over-grid').forEach(el => {
+                    el.classList.remove('drag-over-grid');
+                });
             });
             
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
+                
+                // 북마크를 드래그 중인지 확인
+                const bookmarkId = e.dataTransfer.types.includes('bookmarkid') || 
+                                  e.dataTransfer.types.includes('text/bookmarkid');
+                
+                if (bookmarkId) {
+                    // 북마크를 드래그 중이면 카테고리에 드롭 가능 표시
+                    card.classList.add('drag-over-category');
+                    
+                    // bookmarks-grid 영역에 드롭 가능 표시
+                    const bookmarksGrid = card.querySelector('.bookmarks-grid');
+                    if (bookmarksGrid && !bookmarksGrid.classList.contains('collapsed')) {
+                        bookmarksGrid.classList.add('drag-over-grid');
+                    }
+                }
+            });
+            
+            card.addEventListener('dragleave', (e) => {
+                // 카테고리를 완전히 벗어났을 때만 클래스 제거
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drag-over-category');
+                    const bookmarksGrid = card.querySelector('.bookmarks-grid');
+                    if (bookmarksGrid) {
+                        bookmarksGrid.classList.remove('drag-over-grid');
+                    }
+                }
             });
             
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
-                const draggedId = e.dataTransfer.getData('categoryId');
-                const targetId = card.dataset.categoryId;
+                card.classList.remove('drag-over-category');
                 
-                if (draggedId !== targetId) {
-                    const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
-                    const targetIndex = this.categories.findIndex(c => c.id === targetId);
+                const bookmarksGrid = card.querySelector('.bookmarks-grid');
+                if (bookmarksGrid) {
+                    bookmarksGrid.classList.remove('drag-over-grid');
+                }
+                
+                const bookmarkId = e.dataTransfer.getData('bookmarkId');
+                const sourceCategoryId = e.dataTransfer.getData('sourceCategoryId');
+                const targetCategoryId = card.dataset.categoryId;
+                
+                if (bookmarkId) {
+                    // 북마크를 카테고리로 드롭
+                    console.log('🎯 카테고리 카드로 북마크 드롭:', {
+                        bookmarkId,
+                        from: sourceCategoryId,
+                        to: targetCategoryId
+                    });
+                    this.moveBookmarkToCategory(bookmarkId, sourceCategoryId, targetCategoryId);
+                } else {
+                    // 카테고리끼리 드롭
+                    const draggedId = e.dataTransfer.getData('categoryId');
                     
-                    const [removed] = this.categories.splice(draggedIndex, 1);
-                    this.categories.splice(targetIndex, 0, removed);
-                    
-                    this.saveData();
-                    this.render();
+                    if (draggedId && draggedId !== targetCategoryId) {
+                        const draggedIndex = this.categories.findIndex(c => c.id === draggedId);
+                        const targetIndex = this.categories.findIndex(c => c.id === targetCategoryId);
+                        
+                        const [removed] = this.categories.splice(draggedIndex, 1);
+                        this.categories.splice(targetIndex, 0, removed);
+                        
+                        this.saveData();
+                        this.render();
+                    }
                 }
             });
         });
@@ -1014,11 +1070,23 @@ class BookmarkApp {
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('bookmarkId', card.dataset.bookmarkId);
                 e.dataTransfer.setData('sourceCategoryId', card.dataset.categoryId);
+                e.dataTransfer.setData('text/bookmarkId', card.dataset.bookmarkId); // 타입 확인용
                 card.classList.add('dragging');
+                
+                console.log('🎯 북마크 드래그 시작:', {
+                    bookmarkId: card.dataset.bookmarkId,
+                    categoryId: card.dataset.categoryId
+                });
             });
             
             card.addEventListener('dragend', () => {
                 card.classList.remove('dragging');
+                document.querySelectorAll('.drag-over-category').forEach(el => {
+                    el.classList.remove('drag-over-category');
+                });
+                document.querySelectorAll('.drag-over-grid').forEach(el => {
+                    el.classList.remove('drag-over-grid');
+                });
             });
             
             card.addEventListener('dragover', (e) => {
@@ -1036,7 +1104,10 @@ class BookmarkApp {
                 const targetCategoryId = card.dataset.categoryId;
                 const targetBookmarkId = card.dataset.bookmarkId;
                 
-                if (sourceCategoryId === targetCategoryId && bookmarkId !== targetBookmarkId) {
+                if (bookmarkId === targetBookmarkId) return;
+                
+                if (sourceCategoryId === targetCategoryId) {
+                    // 같은 카테고리 내에서 순서 변경
                     const category = this.categories.find(c => c.id === sourceCategoryId);
                     const draggedIndex = category.bookmarks.findIndex(b => b.id === bookmarkId);
                     const targetIndex = category.bookmarks.findIndex(b => b.id === targetBookmarkId);
@@ -1044,11 +1115,126 @@ class BookmarkApp {
                     const [removed] = category.bookmarks.splice(draggedIndex, 1);
                     category.bookmarks.splice(targetIndex, 0, removed);
                     
-                    this.saveData();
-                    this.render();
+                    console.log('📝 같은 카테고리 내 순서 변경');
+                } else {
+                    // 다른 카테고리로 이동
+                    console.log('🔄 다른 카테고리로 이동 시작:', {
+                        bookmarkId,
+                        from: sourceCategoryId,
+                        to: targetCategoryId
+                    });
+                    
+                    const sourceCategory = this.categories.find(c => c.id === sourceCategoryId);
+                    const targetCategory = this.categories.find(c => c.id === targetCategoryId);
+                    
+                    if (!sourceCategory || !targetCategory) {
+                        console.error('❌ 카테고리를 찾을 수 없음:', {
+                            sourceCategory: !!sourceCategory,
+                            targetCategory: !!targetCategory
+                        });
+                        return;
+                    }
+                    
+                    const bookmarkIndex = sourceCategory.bookmarks.findIndex(b => b.id === bookmarkId);
+                    if (bookmarkIndex === -1) {
+                        console.error('❌ 북마크를 찾을 수 없음:', bookmarkId);
+                        return;
+                    }
+                    
+                    const [bookmark] = sourceCategory.bookmarks.splice(bookmarkIndex, 1);
+                    
+                    const targetIndex = targetCategory.bookmarks.findIndex(b => b.id === targetBookmarkId);
+                    targetCategory.bookmarks.splice(targetIndex, 0, bookmark);
+                    
+                    console.log('✅ 다른 카테고리로 이동 완료:', {
+                        bookmark: bookmark.title,
+                        from: sourceCategory.name,
+                        to: targetCategory.name
+                    });
+                }
+                
+                this.saveData();
+                this.render();
+            });
+        });
+        
+        // bookmarks-grid 영역에도 드롭 리스너 추가 (빈 공간에 드롭 가능하게)
+        const bookmarksGrids = document.querySelectorAll('.bookmarks-grid');
+        
+        bookmarksGrids.forEach(grid => {
+            grid.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                // 북마크를 드래그 중인지 확인
+                const bookmarkId = e.dataTransfer.types.includes('bookmarkid') || 
+                                  e.dataTransfer.types.includes('text/bookmarkid');
+                
+                if (bookmarkId && !grid.classList.contains('collapsed')) {
+                    grid.classList.add('drag-over-grid');
+                }
+            });
+            
+            grid.addEventListener('dragleave', (e) => {
+                if (!grid.contains(e.relatedTarget)) {
+                    grid.classList.remove('drag-over-grid');
+                }
+            });
+            
+            grid.addEventListener('drop', (e) => {
+                // 빈 공간에 드롭했을 때 (북마크 카드가 아닌 경우)
+                if (e.target.classList.contains('bookmarks-grid') || 
+                    e.target.classList.contains('add-bookmark-btn')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    grid.classList.remove('drag-over-grid');
+                    
+                    const bookmarkId = e.dataTransfer.getData('bookmarkId');
+                    const sourceCategoryId = e.dataTransfer.getData('sourceCategoryId');
+                    
+                    // 현재 grid의 카테고리 ID 찾기
+                    const targetCategoryCard = grid.closest('.category-card');
+                    if (!targetCategoryCard) return;
+                    
+                    const targetCategoryId = targetCategoryCard.dataset.categoryId;
+                    
+                    if (bookmarkId && sourceCategoryId !== targetCategoryId) {
+                        console.log('🎯 빈 공간에 북마크 드롭:', {
+                            bookmarkId,
+                            from: sourceCategoryId,
+                            to: targetCategoryId
+                        });
+                        this.moveBookmarkToCategory(bookmarkId, sourceCategoryId, targetCategoryId);
+                    }
                 }
             });
         });
+    }
+    
+    // 북마크를 카테고리로 이동하는 헬퍼 함수
+    moveBookmarkToCategory(bookmarkId, sourceCategoryId, targetCategoryId) {
+        if (sourceCategoryId === targetCategoryId) return;
+        
+        const sourceCategory = this.categories.find(c => c.id === sourceCategoryId);
+        const targetCategory = this.categories.find(c => c.id === targetCategoryId);
+        
+        if (!sourceCategory || !targetCategory) return;
+        
+        const bookmarkIndex = sourceCategory.bookmarks.findIndex(b => b.id === bookmarkId);
+        if (bookmarkIndex === -1) return;
+        
+        const [bookmark] = sourceCategory.bookmarks.splice(bookmarkIndex, 1);
+        targetCategory.bookmarks.push(bookmark);
+        
+        console.log('✅ 북마크를 카테고리로 이동:', {
+            bookmark: bookmark.title,
+            from: sourceCategory.name,
+            to: targetCategory.name
+        });
+        
+        this.saveData();
+        this.render();
     }
 
     backupData() {
