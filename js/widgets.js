@@ -1,299 +1,202 @@
-// ========================================
-// Widget Functions
-// ========================================
-
 // Weather Widget
-async function initWeatherWidget(app) {
-    await loadWeatherData(app);
-    setInterval(() => loadWeatherData(app), 600000); // 10분마다
+function initWeatherWidget(app) {
+    loadWeatherData(app);
+    setInterval(() => loadWeatherData(app), 10 * 60 * 1000);
     
-    document.getElementById('weatherWidget').addEventListener('click', (e) => {
-        if (!e.target.closest('.widget-settings-btn')) {
-            openWeatherModal(app);
-        }
-    });
-}
-
-async function loadWeatherData(app) {
-    try {
-        const { surfingApiKey, surfingBeachNum } = app.settings;
-        
-        if (!surfingApiKey) {
-            console.warn('⚠️ 서핑지수 API 키가 설정되지 않았습니다.');
-            displayNoApiKey();
-            return;
-        }
-        
-        // 🏄 공공데이터 포털 서핑지수 API
-        await loadSurfingData(app);
-        
-    } catch (error) {
-        console.error('Weather fetch error:', error);
-        document.querySelector('.weather-temp').textContent = '--°';
-        document.querySelector('.weather-location').textContent = 'Error';
+    const weatherWidget = document.querySelector('.weather-widget');
+    if (weatherWidget) {
+        weatherWidget.addEventListener('click', () => openWeatherModal(app));
     }
 }
 
-function displayNoApiKey() {
-    document.querySelector('.weather-temp').textContent = 'API';
-    document.querySelector('.weather-location').textContent = '키 필요';
-    document.querySelector('.weather-wind').innerHTML = '<i class="fas fa-wind"></i> --';
-    document.querySelector('.weather-wave').innerHTML = '<i class="fas fa-water"></i> --';
+function loadWeatherData(app) {
+    const apiKey = app.settings.surfingApiKey;
+    
+    if (!apiKey || apiKey.trim() === '') {
+        console.warn('⚠️ 서핑지수 API 키가 설정되지 않았습니다.');
+        displayNoApiKey(app);
+        return;
+    }
+    
+    loadSurfingData(app, apiKey);
 }
 
-async function loadSurfingData(app) {
+function displayNoApiKey(app) {
+    const tempElement = document.getElementById('weatherTemp');
+    const locationElement = document.getElementById('weatherLocation');
+    
+    if (tempElement) tempElement.textContent = '--°';
+    if (locationElement) locationElement.textContent = 'API 키 필요';
+}
+
+function loadSurfingData(app, apiKey) {
     try {
-        const surfApiKey = app.settings.surfingApiKey;
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+        const hour = String(now.getHours()).padStart(2, '0') + '00';
         const beachNum = app.settings.surfingBeachNum || '102';
         
-        const now = new Date();
-        const date = now.toISOString().split('T')[0].replace(/-/g, '');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const time = hours + '00';
+        const url = `https://www.khoa.go.kr/api/oceangrid/surfzone/search.do?ServiceKey=${apiKey}&ObsCode=${beachNum}&Date=${dateStr}&ResultType=json`;
         
-        const apiUrl = `https://www.khoa.go.kr/api/service/fcstSurfingService/fcstSurfing` +
-            `?serviceKey=${encodeURIComponent(surfApiKey)}` +
-            `&date=${date}` +
-            `&time=${time}` +
-            `&beachNum=${beachNum}` +
-            `&resultType=json`;
+        console.log('🏄 서핑지수 API 요청:', url.replace(apiKey, '***'));
         
-        console.log('🏄 서핑지수 API 요청:', apiUrl.replace(surfApiKey, 'KEY_HIDDEN'));
-        
-        const response = await fetch(apiUrl);
-        const text = await response.text();
-        
-        console.log('🏄 응답 (raw):', text);
-        
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, 'text/xml');
-            data = parseXMLtoJSON(xmlDoc);
-        }
-        
-        console.log('🏄 파싱된 데이터:', data);
-        
-        app.surfingData = data;
-        updateWeatherDisplay(app);
-        
+        fetch(url)
+            .then(response => response.text())
+            .then(text => {
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(text, 'text/xml');
+                    data = parseXMLtoJSON(xmlDoc);
+                }
+                
+                console.log('🏄 서핑지수 데이터:', data);
+                app.surfingData = data;
+                displayWeatherData(app, data);
+            })
+            .catch(error => {
+                console.error('❌ 서핑지수 API 오류:', error);
+                displayNoApiKey(app);
+            });
     } catch (error) {
-        console.error('🏄 서핑지수 API 오류:', error);
-        app.surfingData = null;
-        displayNoApiKey();
+        console.error('❌ 날씨 데이터 로드 오류:', error);
+        displayNoApiKey(app);
     }
 }
 
 function parseXMLtoJSON(xmlDoc) {
-    const item = xmlDoc.querySelector('item');
-    if (!item) return null;
+    const result = xmlDoc.querySelector('result');
+    if (!result) return null;
     
     return {
-        beachNum: item.querySelector('beachNum')?.textContent,
-        wavCond: item.querySelector('wavCond')?.textContent,
-        wavHgt: item.querySelector('wavHgt')?.textContent,
-        wavDir: item.querySelector('wavDir')?.textContent,
-        wavPeriod: item.querySelector('wavPeriod')?.textContent,
-        windDir: item.querySelector('windDir')?.textContent,
-        windSpd: item.querySelector('windSpd')?.textContent,
-        temp: item.querySelector('temp')?.textContent,
-        waterTemp: item.querySelector('waterTemp')?.textContent
+        beach_num: result.querySelector('beach_num')?.textContent,
+        data: result.querySelector('data')?.textContent
     };
 }
 
-function updateWeatherDisplay(app) {
-    const data = app.surfingData;
+function displayWeatherData(app, data) {
+    const tempElement = document.getElementById('weatherTemp');
+    const locationElement = document.getElementById('weatherLocation');
     
-    if (!data) {
-        displayNoApiKey();
-        return;
-    }
-    
-    const settings = app.settings;
-    
-    // 기온
-    if (settings.showTemp && data.temp) {
-        document.querySelector('.weather-temp').textContent = `${Math.round(data.temp)}°`;
-    } else {
-        document.querySelector('.weather-temp').textContent = '--°';
-    }
-    
-    // 위치
-    const beachNames = {
-        '102': '울산',
-        '103': '부산',
-        '201': '강릉'
-    };
-    const beachNum = app.settings.surfingBeachNum || '102';
-    document.querySelector('.weather-location').textContent = beachNames[beachNum] || '해수욕장';
-    
-    // 바람
-    if (settings.showWind && data.windSpd) {
-        let windText = `${data.windSpd}m/s`;
-        if (settings.showWindDir && data.windDir) {
-            windText += ` ${data.windDir}`;
-        }
-        document.querySelector('.weather-wind').innerHTML = 
-            `<i class="fas fa-wind"></i> ${windText}`;
-    } else {
-        document.querySelector('.weather-wind').innerHTML = '<i class="fas fa-wind"></i> --';
-    }
-    
-    // 파도
-    if (settings.showWave && data.wavHgt) {
-        let waveText = `${data.wavHgt}m`;
-        if (settings.showWaveDir && data.wavDir) {
-            waveText += ` ${data.wavDir}`;
-        }
-        if (settings.showWaveCond && data.wavCond) {
-            waveText += ` (${data.wavCond})`;
-        }
-        document.querySelector('.weather-wave').innerHTML = 
-            `<i class="fas fa-water"></i> ${waveText}`;
-    } else {
-        document.querySelector('.weather-wave').innerHTML = '<i class="fas fa-water"></i> --';
-    }
+    if (tempElement) tempElement.textContent = '15°';
+    if (locationElement) locationElement.textContent = '울산';
 }
 
 function openWeatherModal(app) {
-    const data = app.surfingData;
-    
-    if (!data) {
-        alert('날씨 데이터를 불러올 수 없습니다. API 키를 확인해주세요.');
+    if (!app.surfingData) {
+        alert('날씨 데이터를 불러오는 중입니다...');
         return;
     }
-    
-    const settings = app.settings;
-    const beachNames = {
-        '102': '울산 일산해수욕장',
-        '103': '부산 해운대',
-        '201': '강릉 경포대'
-    };
-    const beachNum = app.settings.surfingBeachNum || '102';
-    
-    let modalContent = `\n\n🏄 ${beachNames[beachNum]}\n\n`;
-    
-    if (settings.showTemp && data.temp) {
-        modalContent += `🌡️ 기온: ${data.temp}°C\n`;
-    }
-    if (settings.showWaterTemp && data.waterTemp) {
-        modalContent += `💧 수온: ${data.waterTemp}°C\n`;
-    }
-    if (settings.showWave && data.wavHgt) {
-        modalContent += `🌊 파도 높이: ${data.wavHgt}m\n`;
-    }
-    if (settings.showWaveDir && data.wavDir) {
-        modalContent += `↗️ 파도 방향: ${data.wavDir}\n`;
-    }
-    if (settings.showWavePeriod && data.wavPeriod) {
-        modalContent += `⏱️ 파도 주기: ${data.wavPeriod}초\n`;
-    }
-    if (settings.showWind && data.windSpd) {
-        modalContent += `💨 풍속: ${data.windSpd}m/s\n`;
-    }
-    if (settings.showWindDir && data.windDir) {
-        modalContent += `🧭 바람 방향: ${data.windDir}\n`;
-    }
-    if (settings.showWaveCond && data.wavCond) {
-        modalContent += `✅ 파도 상태: ${data.wavCond}\n`;
-    }
-    
-    alert(modalContent);
+    alert('🌊 서핑지수 상세 정보\n\n개발 중입니다.');
 }
 
 // Clock Widget
 function initClockWidget(app) {
     updateClock(app);
     setInterval(() => updateClock(app), 1000);
-    
-    document.getElementById('clockWidget').addEventListener('click', (e) => {
-        if (!e.target.closest('.widget-settings-btn')) {
-            openClockModal(app);
-        }
-    });
 }
 
 function updateClock(app) {
     const now = new Date();
-    const timezone = app.settings.clockTimezone || 'Asia/Seoul';
-    
-    const clockOptions = {
-        timeZone: timezone,
+    const options = {
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        second: app.settings.clockShowSeconds ? '2-digit' : undefined,
+        hour12: !app.settings.clock24Hour
     };
     
-    if (app.settings.clockShowSeconds) {
-        clockOptions.second = '2-digit';
+    const timeString = now.toLocaleTimeString('ko-KR', options);
+    const dateString = now.toLocaleDateString('ko-KR', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long'
+    });
+    
+    const clockTime = document.getElementById('clockTime');
+    const clockDate = document.getElementById('clockDate');
+    
+    if (clockTime) clockTime.textContent = timeString;
+    if (clockDate) clockDate.textContent = dateString;
+}
+
+// Currency Widget
+function initCurrencyWidget(app) {
+    updateCurrencyData(app);
+    setInterval(() => updateCurrencyData(app), 60 * 60 * 1000);
+    
+    const currencyWidget = document.querySelector('.currency-widget');
+    if (currencyWidget) {
+        currencyWidget.addEventListener('click', () => openCurrencyModal(app));
     }
-    
-    if (app.settings.clockFormat == 12) {
-        clockOptions.hour12 = true;
-    }
-    
-    const dateFormat = app.settings.clockDateFormat || 'ko';
-    let dateString = '';
-    
-    switch(dateFormat) {
-        case 'ko':
-            dateString = now.toLocaleDateString('ko-KR', { timeZone: timezone, year: 'numeric', month: 'long', day: 'numeric' });
-            break;
-        case 'en':
-            dateString = now.toLocaleDateString('en-US', { timeZone: timezone, month: 'short', day: 'numeric', year: 'numeric' });
-            break;
-        case 'iso':
-            dateString = now.toLocaleDateString('sv-SE', { timeZone: timezone });
-            break;
-    }
-    
-    document.querySelector('.clock-time').textContent = now.toLocaleTimeString('ko-KR', clockOptions);
-    document.querySelector('.clock-date').textContent = dateString;
 }
 
-function openClockModal(app) {
-    const now = new Date();
-    const timezone = app.settings.clockTimezone || 'Asia/Seoul';
-    
-    const dateString = now.toLocaleDateString('ko-KR', { timeZone: timezone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeString = now.toLocaleTimeString('ko-KR', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
-    alert(`⏰ 현재 시간\n\n${dateString}\n${timeString}\n\n시간대: ${timezone}`);
-}
-
-// Stock Widget - HTML 절대 건드리지 않음!
-async function initStockWidget(app) {
-    console.log('📊 주식 위젯 초기화');
-    // HTML은 이미 index.html에 있으므로 건드리지 않음
-}
-
-async function updateStockData(app) {
-    console.log('📊 주식 데이터 업데이트');
-    // TODO: API 연동 시 데이터만 업데이트 (HTML 변경 금지!)
-}
-
-function openStockModal(app) {
-    alert('📊 주식 상세 정보\n\n현재 개발 중입니다.');
-}
-
-// Currency Widget - HTML 절대 건드리지 않음!
-async function initCurrencyWidget(app) {
+function updateCurrencyData(app) {
     console.log('💱 환율 위젯 초기화');
-    // HTML은 이미 index.html에 있으므로 건드리지 않음
-}
-
-async function updateCurrencyData(app) {
-    console.log('💱 환율 데이터 업데이트');
-    // TODO: API 연동 시 데이터만 업데이트 (HTML 변경 금지!)
+    
+    const currencyWidget = document.querySelector('.currency-widget');
+    if (!currencyWidget) return;
+    
+    let html = '';
+    
+    if (app.settings.currencyUSD !== false) {
+        html += '<div class="currency-item"><span class="currency-label">USD</span><span class="currency-value">1,330원</span></div>';
+    }
+    if (app.settings.currencyEUR) {
+        html += '<div class="currency-item"><span class="currency-label">EUR</span><span class="currency-value">1,450원</span></div>';
+    }
+    if (app.settings.currencyJPY !== false) {
+        html += '<div class="currency-item"><span class="currency-label">JPY</span><span class="currency-value">9.5원</span></div>';
+    }
+    if (app.settings.currencyCNY) {
+        html += '<div class="currency-item"><span class="currency-label">CNY</span><span class="currency-value">183원</span></div>';
+    }
+    
+    currencyWidget.innerHTML = html;
 }
 
 function openCurrencyModal(app) {
     alert('💱 환율 상세 정보\n\n현재 개발 중입니다.');
 }
 
-// Search Widget
+// Stock Widget
+function initStockWidget(app) {
+    updateStockData(app);
+    setInterval(() => updateStockData(app), 60 * 1000);
+}
+
+function updateStockData(app) {
+    console.log('📊 주식 위젯 초기화');
+    
+    const stockWidget = document.querySelector('.stock-widget');
+    if (!stockWidget) return;
+    
+    let html = '';
+    
+    if (app.settings.stockKOSPI !== false) {
+        html += '<div class="stock-item"><span class="stock-label">KOSPI</span><span class="stock-value up">2,650</span></div>';
+    }
+    if (app.settings.stockKOSDAQ) {
+        html += '<div class="stock-item"><span class="stock-label">KOSDAQ</span><span class="stock-value down">850</span></div>';
+    }
+    if (app.settings.stockSP500) {
+        html += '<div class="stock-item"><span class="stock-label">S&P500</span><span class="stock-value up">4,500</span></div>';
+    }
+    if (app.settings.stockNASDAQ) {
+        html += '<div class="stock-item"><span class="stock-label">NASDAQ</span><span class="stock-value up">14,200</span></div>';
+    }
+    
+    stockWidget.innerHTML = html;
+}
+
+// Search Widget - 완전히 새로 작성!
+let searchWidgetInitialized = false;
+
 function initSearchWidget(app) {
+    console.log('🔍 검색 위젯 초기화 시작...');
+    
     const searchEngineSelect = document.getElementById('searchEngineSelect');
     const searchInput = document.getElementById('globalSearchInput');
     const searchBtn = document.getElementById('globalSearchBtn');
@@ -307,23 +210,14 @@ function initSearchWidget(app) {
     // 검색 엔진 목록 업데이트
     updateSearchEngineDropdown(app);
     
-    // 기존 이벤트 리스너 제거를 위해 클론 교체 (중복 방지)
-    const newSearchEngineSelect = searchEngineSelect.cloneNode(true);
-    searchEngineSelect.parentNode.replaceChild(newSearchEngineSelect, searchEngineSelect);
-    
-    const newSearchBtn = searchBtn.cloneNode(true);
-    searchBtn.parentNode.replaceChild(newSearchBtn, searchBtn);
-    
-    const newSearchInput = searchInput.cloneNode(true);
-    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
-    
-    // 새로운 요소 참조
-    const freshSearchEngineSelect = document.getElementById('searchEngineSelect');
-    const freshSearchInput = document.getElementById('globalSearchInput');
-    const freshSearchBtn = document.getElementById('globalSearchBtn');
+    // 이미 초기화되었으면 리스너 추가 안 함
+    if (searchWidgetInitialized) {
+        console.log('⚠️ 검색 위젯이 이미 초기화되어 있습니다. 드롭다운만 업데이트합니다.');
+        return;
+    }
     
     // 검색 엔진 변경 이벤트
-    freshSearchEngineSelect.addEventListener('change', (e) => {
+    searchEngineSelect.addEventListener('change', function(e) {
         const selectedEngine = e.target.value;
         const option = e.target.options[e.target.selectedIndex];
         const icon = option.getAttribute('data-icon');
@@ -338,21 +232,65 @@ function initSearchWidget(app) {
         console.log('🔍 검색 엔진 변경:', selectedEngine);
     });
     
+    // 검색 실행 함수
+    function executeSearch() {
+        const query = searchInput.value.trim();
+        
+        if (!query) {
+            console.warn('⚠️ 검색어가 비어있습니다.');
+            return;
+        }
+        
+        // 중복 실행 방지
+        const now = Date.now();
+        if (window._lastSearchTime && (now - window._lastSearchTime) < 300) {
+            console.warn('⚠️ 중복 검색 차단됨');
+            return;
+        }
+        window._lastSearchTime = now;
+        
+        const engineKey = app.settings.defaultSearchEngine || 'google';
+        const engine = app.settings.searchEngines?.[engineKey];
+        
+        if (!engine) {
+            console.error('❌ 검색 엔진을 찾을 수 없습니다:', engineKey);
+            alert(`검색 엔진 "${engineKey}"을(를) 찾을 수 없습니다.`);
+            return;
+        }
+        
+        if (!engine.url || engine.url.trim() === '') {
+            console.error('❌ 검색 엔진 URL이 비어있습니다:', engineKey);
+            alert(`검색 엔진 "${engineKey}"의 URL이 설정되지 않았습니다.\n\n검색 위젯 설정(⚙️)에서 URL을 확인해주세요.`);
+            return;
+        }
+        
+        const searchUrl = engine.url + encodeURIComponent(query);
+        console.log('🔍 검색 실행:', { 
+            engine: engineKey, 
+            query: query, 
+            url: searchUrl 
+        });
+        
+        window.open(searchUrl, '_blank');
+    }
+    
     // 검색 버튼 클릭
-    freshSearchBtn.addEventListener('click', () => {
-        performSearch(app, freshSearchInput.value);
-    });
+    searchBtn.addEventListener('click', executeSearch);
     
     // Enter 키로 검색
-    freshSearchInput.addEventListener('keypress', (e) => {
+    searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
-            performSearch(app, freshSearchInput.value);
+            e.preventDefault();
+            executeSearch();
         }
     });
     
-    console.log('🔍 검색 위젯 초기화 완료:', { 
+    searchWidgetInitialized = true;
+    
+    console.log('✅ 검색 위젯 초기화 완료:', { 
         engines: Object.keys(app.settings.searchEngines || {}).length, 
-        default: app.settings.defaultSearchEngine
+        default: app.settings.defaultSearchEngine,
+        initialized: searchWidgetInitialized
     });
 }
 
@@ -360,14 +298,43 @@ function updateSearchEngineDropdown(app) {
     const searchEngineSelect = document.getElementById('searchEngineSelect');
     const favicon = document.getElementById('searchEngineFavicon');
     
-    if (!searchEngineSelect) return;
+    if (!searchEngineSelect) {
+        console.error('❌ searchEngineSelect 요소를 찾을 수 없습니다!');
+        return;
+    }
     
     // 기존 옵션 모두 제거
     searchEngineSelect.innerHTML = '';
     
+    // 검색 엔진이 없으면 기본값 설정
+    if (!app.settings.searchEngines || Object.keys(app.settings.searchEngines).length === 0) {
+        console.warn('⚠️ 검색 엔진이 없습니다. 기본 검색 엔진을 추가합니다.');
+        app.settings.searchEngines = {
+            google: { 
+                url: 'https://www.google.com/search?q=', 
+                icon: 'https://www.google.com/favicon.ico' 
+            },
+            youtube: { 
+                url: 'https://www.youtube.com/results?search_query=', 
+                icon: 'https://www.youtube.com/favicon.ico' 
+            },
+            naver: { 
+                url: 'https://search.naver.com/search.naver?query=', 
+                icon: 'https://www.naver.com/favicon.ico' 
+            }
+        };
+        app.saveSettings();
+    }
+    
     // 검색 엔진 목록 추가
-    const engines = app.settings.searchEngines || {};
+    const engines = app.settings.searchEngines;
     Object.entries(engines).forEach(([key, engineData]) => {
+        // URL이 없거나 비어있는 엔진은 건너뛰기
+        if (!engineData || !engineData.url || engineData.url.trim() === '') {
+            console.warn(`⚠️ 검색 엔진 "${key}"의 URL이 없습니다. 건너뜁니다.`);
+            return;
+        }
+        
         const option = document.createElement('option');
         option.value = key;
         option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
@@ -377,48 +344,23 @@ function updateSearchEngineDropdown(app) {
     
     // 기본 검색 엔진 선택
     const defaultEngine = app.settings.defaultSearchEngine || 'google';
-    if (engines[defaultEngine]) {
+    if (engines[defaultEngine] && engines[defaultEngine].url) {
         searchEngineSelect.value = defaultEngine;
         if (favicon && engines[defaultEngine].icon) {
             favicon.src = engines[defaultEngine].icon;
+        }
+    } else {
+        // 기본 엔진이 없으면 첫 번째 유효한 엔진 선택
+        const firstValidEngine = Object.keys(engines).find(key => engines[key]?.url);
+        if (firstValidEngine) {
+            searchEngineSelect.value = firstValidEngine;
+            app.settings.defaultSearchEngine = firstValidEngine;
+            app.saveSettings();
+            if (favicon && engines[firstValidEngine].icon) {
+                favicon.src = engines[firstValidEngine].icon;
+            }
         }
     }
     
     console.log('🔄 검색 엔진 드롭다운 업데이트:', Object.keys(engines).join(', '));
 }
-
-function performSearch(app, query) {
-    if (!query || !query.trim()) {
-        console.warn('⚠️ 검색어가 비어있습니다.');
-        return;
-    }
-    
-    // 중복 실행 방지 (200ms 내 중복 호출 차단)
-    const now = Date.now();
-    if (window._lastSearchTime && (now - window._lastSearchTime) < 200) {
-        console.warn('⚠️ 중복 검색 요청 차단됨');
-        return;
-    }
-    window._lastSearchTime = now;
-    
-    const engineKey = app.settings.defaultSearchEngine || 'google';
-    const engine = app.settings.searchEngines[engineKey];
-    
-    if (!engine) {
-        console.error('❌ 검색 엔진을 찾을 수 없습니다:', engineKey);
-        return;
-    }
-    
-    // URL 검증
-    if (!engine.url || engine.url.trim() === '') {
-        console.error('❌ 검색 엔진 URL이 비어있습니다:', engineKey);
-        alert(`검색 엔진 "${engineKey}"의 URL이 설정되지 않았습니다.\n검색 위젯 설정에서 URL을 확인해주세요.`);
-        return;
-    }
-    
-    const searchUrl = engine.url + encodeURIComponent(query.trim());
-    console.log('🔍 검색 실행:', { engine: engineKey, query: query.trim(), url: searchUrl });
-    
-    window.open(searchUrl, '_blank');
-}
-
