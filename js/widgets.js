@@ -393,11 +393,26 @@ function performSearch(app, query) {
         return;
     }
     
+    // 중복 실행 방지 (200ms 내 중복 호출 차단)
+    const now = Date.now();
+    if (window._lastSearchTime && (now - window._lastSearchTime) < 200) {
+        console.warn('⚠️ 중복 검색 요청 차단됨');
+        return;
+    }
+    window._lastSearchTime = now;
+    
     const engineKey = app.settings.defaultSearchEngine || 'google';
     const engine = app.settings.searchEngines[engineKey];
     
     if (!engine) {
         console.error('❌ 검색 엔진을 찾을 수 없습니다:', engineKey);
+        return;
+    }
+    
+    // URL 검증
+    if (!engine.url || engine.url.trim() === '') {
+        console.error('❌ 검색 엔진 URL이 비어있습니다:', engineKey);
+        alert(`검색 엔진 "${engineKey}"의 URL이 설정되지 않았습니다.\n검색 위젯 설정에서 URL을 확인해주세요.`);
         return;
     }
     
