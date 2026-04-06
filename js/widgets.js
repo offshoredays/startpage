@@ -307,8 +307,23 @@ function initSearchWidget(app) {
     // 검색 엔진 목록 업데이트
     updateSearchEngineDropdown(app);
     
+    // 기존 이벤트 리스너 제거를 위해 클론 교체 (중복 방지)
+    const newSearchEngineSelect = searchEngineSelect.cloneNode(true);
+    searchEngineSelect.parentNode.replaceChild(newSearchEngineSelect, searchEngineSelect);
+    
+    const newSearchBtn = searchBtn.cloneNode(true);
+    searchBtn.parentNode.replaceChild(newSearchBtn, searchBtn);
+    
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    
+    // 새로운 요소 참조
+    const freshSearchEngineSelect = document.getElementById('searchEngineSelect');
+    const freshSearchInput = document.getElementById('globalSearchInput');
+    const freshSearchBtn = document.getElementById('globalSearchBtn');
+    
     // 검색 엔진 변경 이벤트
-    searchEngineSelect.addEventListener('change', (e) => {
+    freshSearchEngineSelect.addEventListener('change', (e) => {
         const selectedEngine = e.target.value;
         const option = e.target.options[e.target.selectedIndex];
         const icon = option.getAttribute('data-icon');
@@ -324,14 +339,14 @@ function initSearchWidget(app) {
     });
     
     // 검색 버튼 클릭
-    searchBtn.addEventListener('click', () => {
-        performSearch(app, searchInput.value);
+    freshSearchBtn.addEventListener('click', () => {
+        performSearch(app, freshSearchInput.value);
     });
     
     // Enter 키로 검색
-    searchInput.addEventListener('keypress', (e) => {
+    freshSearchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            performSearch(app, searchInput.value);
+            performSearch(app, freshSearchInput.value);
         }
     });
     
