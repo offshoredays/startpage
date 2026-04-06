@@ -1413,9 +1413,9 @@ class BookmarkApp {
             item.style.alignItems = 'center';
             
             item.innerHTML = `
-                <input type="text" class="form-input" value="${key}" placeholder="google" data-key="${key}" style="padding: 8px;">
-                <input type="text" class="form-input" value="${url}" placeholder="https://www.google.com/search?q=" data-url="${key}" style="padding: 8px;">
-                <input type="text" class="form-input" value="${icon}" placeholder="https://www.google.com/favicon.ico" data-icon="${key}" style="padding: 8px;">
+                <input type="text" class="form-input engine-key-input" value="${key}" placeholder="google" style="padding: 8px;">
+                <input type="text" class="form-input engine-url-input" value="${url}" placeholder="https://www.google.com/search?q=" style="padding: 8px;">
+                <input type="text" class="form-input engine-icon-input" value="${icon}" placeholder="https://www.google.com/favicon.ico" style="padding: 8px;">
                 <button class="btn-secondary remove-search-engine" data-remove="${key}" style="padding: 8px 12px;">삭제</button>
             `;
             listContainer.appendChild(item);
@@ -1449,9 +1449,9 @@ class BookmarkApp {
     saveSearchSettings() {
         const newEngines = {};
         document.querySelectorAll('.search-engine-item').forEach(item => {
-            const keyInput = item.querySelector('[data-key]');
-            const urlInput = item.querySelector('[data-url]');
-            const iconInput = item.querySelector('[data-icon]');
+            const keyInput = item.querySelector('.engine-key-input');
+            const urlInput = item.querySelector('.engine-url-input');
+            const iconInput = item.querySelector('.engine-icon-input');
             const key = keyInput.value.trim();
             const url = urlInput.value.trim();
             const icon = iconInput.value.trim();
@@ -1480,7 +1480,6 @@ class BookmarkApp {
 
     addSearchEngine() {
         const listContainer = document.getElementById('searchEngineList');
-        const newId = 'new_' + Date.now(); // 고유 ID 생성
         
         const item = document.createElement('div');
         item.className = 'search-engine-item';
@@ -1491,9 +1490,9 @@ class BookmarkApp {
         item.style.alignItems = 'center';
         
         item.innerHTML = `
-            <input type="text" class="form-input" placeholder="google" data-key="${newId}" style="padding: 8px;">
-            <input type="text" class="form-input" placeholder="https://www.google.com/search?q=" data-url="${newId}" style="padding: 8px;">
-            <input type="text" class="form-input" placeholder="https://www.google.com/favicon.ico" data-icon="${newId}" style="padding: 8px;">
+            <input type="text" class="form-input engine-key-input" placeholder="temu" style="padding: 8px;">
+            <input type="text" class="form-input engine-url-input" placeholder="https://www.temu.com/search_result.html?search_key=" style="padding: 8px;">
+            <input type="text" class="form-input engine-icon-input" placeholder="https://www.temu.com/favicon.ico" style="padding: 8px;">
             <button class="btn-secondary remove-search-engine" style="padding: 8px 12px;">삭제</button>
         `;
         listContainer.appendChild(item);
@@ -1502,7 +1501,7 @@ class BookmarkApp {
             item.remove();
         });
         
-        console.log('➕ 검색 엔진 추가 폼 생성:', newId);
+        console.log('➕ 검색 엔진 추가 폼 생성');
     }
 
     removeSearchEngine(key) {
